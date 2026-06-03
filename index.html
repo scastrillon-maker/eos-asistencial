@@ -262,6 +262,19 @@ input,select,textarea{font-family:inherit;font-size:15px}
 .evo-tabla td.evo-q{text-align:left;color:var(--color-estructura-gris);min-width:240px}
 .evo-tabla td.evo-up{background:#fdecec;color:#EF4444;font-weight:800}
 .evo-tabla td.evo-down{background:#e0f5ee;color:var(--color-natural-acento);font-weight:800}
+/* Selector de resultados (chips) + tarjeta de escala */
+.res-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.res-chip{background:var(--color-fondo-secundario);border:1.5px solid var(--color-arena);border-radius:30px;padding:8px 14px;font-size:12.5px;font-weight:700;color:var(--color-estructura-gris)}
+.res-chip:hover{border-color:var(--acento-teal-medio)}
+.res-chip.active{background:var(--color-estructura-oscura);border-color:var(--color-estructura-oscura);color:#fff}
+.esc-desc{font-size:13px;line-height:1.55;color:var(--color-estructura-gris);background:var(--color-fondo-principal);border-left:3px solid var(--acento-teal-medio);border-radius:8px;padding:12px 14px;margin-bottom:16px}
+.esc-score{display:flex;align-items:center;gap:14px;background:#fff;border:1.5px solid var(--color-arena);border-left-width:5px;border-radius:var(--radio);padding:16px 18px;margin-bottom:12px}
+.esc-score-num{font-size:26px;font-weight:800;white-space:nowrap}
+.esc-score-band{margin-left:auto;color:#fff;font-weight:700;font-size:12.5px;padding:5px 14px;border-radius:20px;text-transform:uppercase;letter-spacing:.03em}
+.esc-alarma{background:#fdecec;border:1.5px solid #EF4444;color:#A84040;border-radius:var(--radio);padding:12px 14px;font-size:12.5px;font-weight:600;line-height:1.5;margin-bottom:8px}
+.esc-fila{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 10px;border-radius:8px;font-size:13px;margin-bottom:3px;background:#fff;border:1px solid var(--color-arena)}
+.esc-fila > span:first-child{color:var(--color-estructura-gris)}
+.esc-val{flex-shrink:0;font-weight:700;font-size:12px;color:var(--color-texto-base);background:var(--color-fondo-secundario);padding:2px 9px;border-radius:20px;white-space:nowrap}
 
 @media(max-width:760px){
   .sidebar{position:fixed;left:-260px;z-index:200;transition:left .2s} .sidebar.open{left:0}
@@ -406,7 +419,8 @@ input,select,textarea{font-family:inherit;font-size:15px}
     </div>
     <div class="modal-body">
       <div class="muted" id="maf-sub" style="margin-bottom:14px"></div>
-      <div class="tabs">
+      <div class="res-chips" id="res-chips"></div>
+      <div class="tabs" id="maf-tabs">
         <div class="tab active" id="maf-tab-cat" onclick="cambiarTabMAF('cat')">Resultados por categoría</div>
         <div class="tab" id="maf-tab-evo" onclick="cambiarTabMAF('evo')" style="display:none">Evolución</div>
       </div>
@@ -715,6 +729,112 @@ function tabularMAF(respuestas){
       return { categoria: cat, preguntas: conRespuesta, significativas, muyImplicada: significativas.length >= 3 };
     })
     .filter(cat => cat.preguntas.length > 0);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ESCALAS PSICOMÉTRICAS (PSS-4, ISI, mYFAS, EEQ) — puntuación
+   e interpretación para la vista de resultados del médico.
+   Descripciones basadas en el "Protocolo de Evaluación de Ingreso".
+═══════════════════════════════════════════════════════════ */
+const ETI_PSS = ['Nunca','Casi nunca','A veces','Con bastante frecuencia','Muy a menudo'];
+const ETI_EEQ = ['Nunca','A veces','Generalmente','Siempre'];
+const ETI_Y8  = ['Nunca','1 vez/mes','2-3 veces/mes','1 vez/semana','2-3 veces/semana','4-6 veces/semana','Todos los días','Varias veces al día'];
+const ETI_ISI_SEV = ['Ninguna','Leve','Moderada','Grave','Muy grave'];
+const ETI_ISI_SAT = ['Muy satisfecho/a','Satisfecho/a','Neutral','Insatisfecho/a','Muy insatisfecho/a'];
+const ETI_ISI_IMP = ['Nada','Un poco','Algo','Mucho','Muchísimo'];
+
+const ESCALAS = {
+  PSS01: {
+    nombre:'Escala de Estrés Percibido (PSS-4)',
+    descripcion:'Mide la percepción subjetiva de estrés del último mes — en qué medida la persona siente su vida impredecible, incontrolable y sobrecargante. El estrés crónico activa de forma sostenida el eje HPA, eleva el cortisol y favorece la acumulación de grasa visceral abdominal; suele ser tanto causa como consecuencia del problema metabólico.',
+    maxScore:16, itemsInvertidos:['pss2','pss4'], alarmaMin:11,
+    alarma:'PSS ≥ 11 (estrés alto): considerar aplicar PHQ-9 (depresión) y GAD-7 (ansiedad). Derivar a psicología/psiquiatría si PHQ-9 ≥ 10 o GAD-7 ≥ 10.',
+    interpretacion:[{min:0,max:5,label:'Estrés bajo',color:'#007A60'},{min:6,max:10,label:'Estrés moderado',color:'#C4B49A'},{min:11,max:16,label:'Estrés alto',color:'#9B4EBF'}],
+    preguntas:[
+      {id:'pss1',texto:'¿Con qué frecuencia te has sentido afectado/a por algo que ocurrió inesperadamente?',etiquetas:ETI_PSS},
+      {id:'pss2',texto:'¿Con qué frecuencia te has sentido capaz de controlar las cosas importantes de tu vida? (ítem invertido)',etiquetas:ETI_PSS},
+      {id:'pss3',texto:'¿Con qué frecuencia te has sentido nervioso/a y estresado/a?',etiquetas:ETI_PSS},
+      {id:'pss4',texto:'¿Con qué frecuencia has podido controlar las dificultades de tu vida? (ítem invertido)',etiquetas:ETI_PSS},
+    ],
+  },
+  ISI01: {
+    nombre:'Índice de Severidad del Insomnio (ISI)',
+    descripcion:'Evalúa la severidad del insomnio en las últimas 2 semanas: dificultad para iniciar o mantener el sueño, despertar precoz, satisfacción con el patrón de sueño e impacto diurno. El sueño insuficiente reduce la sensibilidad a la insulina, eleva la ghrelina y reduce la leptina, y mantiene el cortisol elevado, favoreciendo la grasa visceral; un insomnio no tratado limita la respuesta a las intervenciones dietéticas y de ejercicio.',
+    maxScore:28, alarmaMin:15,
+    alarma:'ISI ≥ 15 (insomnio clínico): aplicar STOP-BANG para descartar apnea del sueño. Si STOP-BANG ≥ 3, derivar a medicina del sueño antes de avanzar con hábitos de sueño complejos.',
+    interpretacion:[{min:0,max:7,label:'Sin insomnio clínico',color:'#007A60'},{min:8,max:14,label:'Insomnio subumbral',color:'#C4B49A'},{min:15,max:21,label:'Insomnio clínico moderado',color:'#9B4EBF'},{min:22,max:28,label:'Insomnio clínico grave',color:'#1A1550'}],
+    preguntas:[
+      {id:'isi1',texto:'Dificultad para quedarse dormido/a',etiquetas:ETI_ISI_SEV},
+      {id:'isi2',texto:'Dificultad para mantenerse dormido/a',etiquetas:ETI_ISI_SEV},
+      {id:'isi3',texto:'Despertarse demasiado temprano',etiquetas:ETI_ISI_SEV},
+      {id:'isi4',texto:'Satisfacción con el patrón de sueño actual',etiquetas:ETI_ISI_SAT},
+      {id:'isi5',texto:'Cuánto interfiere con tu calidad de vida (percepción de otros)',etiquetas:ETI_ISI_IMP},
+      {id:'isi6',texto:'Nivel de preocupación por el problema de sueño',etiquetas:ETI_ISI_IMP},
+      {id:'isi7',texto:'Interferencia con el funcionamiento diario',etiquetas:ETI_ISI_IMP},
+    ],
+  },
+  YFAS01: {
+    nombre:'Escala de Adicción a la Comida (mYFAS 2.0)',
+    descripcion:'Detecta patrones de adicción a la comida según criterios del DSM-5 (pérdida de control, craving, tolerancia, consumo a pesar del daño y deterioro funcional). Opera desde un modelo neurobiológico: los alimentos ultraprocesados hiperpalatables activan el sistema de recompensa dopaminérgico de forma análoga a las sustancias adictivas, lo que explica por qué algunos pacientes no logran adherirse a cambios dietéticos pese a su motivación.',
+    tabulacion:'yfas',
+    alarma:'mYFAS ≥ 4 síntomas (zona de alarma TCA): derivar a psicología especializada en conducta alimentaria y suspender retos dietéticos restrictivos hasta evaluación. Mantener mindfulness eating y manejo del estrés.',
+    interpretacion:[{sintomas:[0,0],label:'Sin adicción a la comida',color:'#007A60'},{sintomas:[1,2],label:'Adicción leve',color:'#C4B49A'},{sintomas:[3,5],label:'Adicción moderada',color:'#9B4EBF'},{sintomas:[6,11],label:'Adicción grave',color:'#1A1550'}],
+    preguntas:[
+      {id:'yfas1',texto:'Termino comiendo mucho más de lo que había planeado.',etiquetas:ETI_Y8},
+      {id:'yfas2',texto:'Sigo comiendo ciertos alimentos aunque ya no tenga hambre.',etiquetas:ETI_Y8},
+      {id:'yfas3',texto:'Como hasta sentirme mal físicamente.',etiquetas:ETI_Y8},
+      {id:'yfas4',texto:'Me preocupa no comer o reducir ciertos alimentos.',etiquetas:ETI_Y8},
+      {id:'yfas5',texto:'Paso mucho tiempo lento/a o cansado/a por comer en exceso.',etiquetas:ETI_Y8},
+      {id:'yfas6',texto:'Como para no sentirme ansioso/a, triste o irritable.',etiquetas:ETI_Y8},
+      {id:'yfas7',texto:'Al reducir ciertos alimentos siento agitación, ansiedad u otros síntomas.',etiquetas:ETI_Y8},
+      {id:'yfas8',texto:'Mi conducta con la comida me causa malestar significativo.',etiquetas:ETI_Y8},
+      {id:'yfas9',texto:'Tengo problemas para funcionar por la comida y el comer.',etiquetas:ETI_Y8},
+      {id:'yfas10',texto:'He tenido problemas significativos en mi vida por la comida.',etiquetas:ETI_Y8},
+      {id:'yfas11',texto:'¿Te causa malestar emocional importante?',tipo:'siNo'},
+      {id:'yfas12',texto:'¿Interfiere de forma importante con tu vida diaria?',tipo:'siNo'},
+    ],
+  },
+  EEQ01: {
+    nombre:'Cuestionario de Alimentación Emocional (EEQ)',
+    descripcion:'Evalúa la alimentación emocional: comer en respuesta a estrés, ansiedad, tristeza o descontrol emocional ("comfort food"). La comida se usa como regulador emocional, activando temporalmente el sistema de recompensa y reduciendo la activación del eje HPA, lo que genera un ciclo de dependencia que interfiere con cualquier estrategia de cambio dietético.',
+    maxScore:30, alarmaMin:21,
+    alarma:'EEQ alto (≥ 21): evaluar junto con la mYFAS. Si ambas escalas están en alarma, la derivación a psicología especializada es prioritaria e impostergable.',
+    interpretacion:[{min:0,max:5,label:'No emocional',color:'#007A60'},{min:6,max:10,label:'Emocional leve',color:'#6B7055'},{min:11,max:20,label:'Comedor/a emocional',color:'#C4B49A'},{min:21,max:30,label:'Emocional severo/a',color:'#9B4EBF'}],
+    preguntas:[
+      {id:'eeq1',texto:'¿Comes más cuando estás estresado/a?',etiquetas:ETI_EEQ},
+      {id:'eeq2',texto:'¿Comes más cuando estás aburrido/a?',etiquetas:ETI_EEQ},
+      {id:'eeq3',texto:'¿Comes más cuando estás ansioso/a o nervioso/a?',etiquetas:ETI_EEQ},
+      {id:'eeq4',texto:'¿Comes más cuando estás triste o deprimido/a?',etiquetas:ETI_EEQ},
+      {id:'eeq5',texto:'¿Comes más cuando estás solo/a?',etiquetas:ETI_EEQ},
+      {id:'eeq6',texto:'¿Comes más cuando estás enojado/a o frustrado/a?',etiquetas:ETI_EEQ},
+      {id:'eeq7',texto:'¿Comes más cuando estás cansado/a?',etiquetas:ETI_EEQ},
+      {id:'eeq8',texto:'¿Comes más cuando estás feliz o celebrando?',etiquetas:ETI_EEQ},
+      {id:'eeq9',texto:'¿Comes más cuando tienes problemas con otras personas?',etiquetas:ETI_EEQ},
+      {id:'eeq10',texto:'¿Comes más cuando sientes que perdiste el control sobre tu alimentación?',etiquetas:ETI_EEQ},
+    ],
+  },
+};
+
+// Calcula puntaje + interpretación + alarma para una escala (no MAF)
+function puntuarEscala(formId, r){
+  const cfg = ESCALAS[formId];
+  if(cfg.tabulacion === 'yfas'){
+    const sintIds = ['yfas1','yfas2','yfas3','yfas4','yfas5','yfas6','yfas7','yfas8','yfas9','yfas10'];
+    const sintomas = sintIds.filter(id => (r[id] ?? 0) >= 1).length;          // síntoma = "más que Nunca"
+    const clin = (r.yfas11 === 1 || r.yfas12 === 1) ? 1 : 0;
+    const dx = (clin === 1 && sintomas >= 2);                                  // Dx: malestar/interferencia + ≥2 síntomas
+    const band = cfg.interpretacion.find(b => sintomas >= b.sintomas[0] && sintomas <= b.sintomas[1]) || cfg.interpretacion[cfg.interpretacion.length-1];
+    return { scoreLabel:`${sintomas} síntoma${sintomas!==1?'s':''} · Dx adicción: ${dx?'Sí':'No'}`, interpretacion:band.label, color:band.color, alarma: sintomas >= 4 ? cfg.alarma : '' };
+  }
+  let total = 0;
+  cfg.preguntas.forEach(q => {
+    let v = r[q.id] ?? 0;
+    if(cfg.itemsInvertidos && cfg.itemsInvertidos.includes(q.id)) v = 4 - v;   // likert5 invertido (0..4)
+    total += v;
+  });
+  const band = cfg.interpretacion.find(b => total >= b.min && total <= b.max) || cfg.interpretacion[cfg.interpretacion.length-1];
+  const alarma = (cfg.alarmaMin != null && total >= cfg.alarmaMin) ? cfg.alarma : '';
+  return { scoreLabel:`${total} / ${cfg.maxScore}`, interpretacion:band.label, color:band.color, alarma };
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1157,7 +1277,7 @@ function copiarLink(){
 /* ═══════════════════════════════════════════════════════════
    11. MÓDULO FORMULARIOS — Vista del médico (médico + admin)
 ═══════════════════════════════════════════════════════════ */
-let _formFiltro = '', _mafCC = null, _mafTab = 'cat', _mafEvoChart = null;
+let _formFiltro = '', _mafCC = null, _mafTab = 'cat', _mafEvoChart = null, _resForm = null;
 
 function pacientesDelMedico(){
   const activos = PACIENTES_DATA.filter(p => p.activo !== 'no');
@@ -1194,7 +1314,7 @@ function buildFormularios(){
     <input class="input-search" placeholder="Buscar por nombre o documento…" value="${escapeHtml(_formFiltro)}" oninput="_formFiltro=this.value;buildFormularios()"/>
     <div class="plist">
       ${lista.length ? lista.map(p => `
-        <div class="prow" onclick="openMAF('${p.cc}')">
+        <div class="prow" onclick="openResultados('${p.cc}')">
           <div class="pav">${iniciales(p.nombre)}</div>
           <div style="flex:1;min-width:0">
             <div class="nm">${escapeHtml(p.nombre)}</div>
@@ -1207,22 +1327,73 @@ function buildFormularios(){
     </div>`;
 }
 
-/* ── Modal MAF tabulado ── */
-function openMAF(cc){
+/* ── Modal de resultados del paciente (selector por chips + escalas) ── */
+const CHIP_LABEL = { MAF01:'MAF', ISI01:'Sueño (ISI)', PSS01:'Estrés (PSS-4)', YFAS01:'Comida (mYFAS)', EEQ01:'Emocional (EEQ)' };
+function chipLabel(f){ return CHIP_LABEL[f.id] || f.nombre; }
+function openResultados(cc){
   const p = PACIENTES_DATA.find(x => x.cc === cc); if(!p) return;
-  const mafs = respuestasMAF(cc);
-  _mafCC = cc; _mafTab = 'cat';
+  _mafCC = cc;
   document.getElementById('maf-nombre').textContent = p.nombre;
-  const ult = mafs.length ? mafs[mafs.length-1] : null;
-  document.getElementById('maf-sub').textContent = mafs.length
-    ? `MAF · ${p.tipoDoc} ${p.cc} · última respuesta ${formatFecha(ult.fechaRespuesta)}${mafs.length>1 ? ` · ${mafs.length} respuestas` : ''}`
-    : `${p.tipoDoc} ${p.cc} · sin MAF respondido`;
-  document.getElementById('maf-tab-evo').style.display = mafs.length > 1 ? '' : 'none';
-  document.getElementById('maf-btn-hc').style.display = mafs.length ? '' : 'none';
-  document.getElementById('maf-tab-cat').classList.add('active');
-  document.getElementById('maf-tab-evo').classList.remove('active');
-  renderMAF();
+  document.getElementById('maf-sub').textContent = `${p.tipoDoc} ${p.cc}`;
+  const respFormIds = [...new Set(RESPUESTAS_DATA.filter(r => r.cc === cc).map(r => r.formId))];
+  const formsResp = FORMULARIOS_CATALOGO.filter(f => respFormIds.includes(f.id));
+  const chips = document.getElementById('res-chips');
+  if(!formsResp.length){
+    chips.innerHTML = '';
+    document.getElementById('maf-tabs').style.display = 'none';
+    document.getElementById('maf-btn-hc').style.display = 'none';
+    document.getElementById('maf-content').innerHTML = `<div class="empty"><div class="ic">📄</div>Este paciente aún no ha respondido formularios.</div>`;
+    document.getElementById('modal-maf').classList.add('open');
+    return;
+  }
+  chips.innerHTML = formsResp.map(f => `<button class="res-chip" data-form="${f.id}" onclick="seleccionarResultado('${f.id}')">${f.icon} ${escapeHtml(chipLabel(f))}</button>`).join('');
+  _resForm = formsResp.some(f => f.id === 'MAF01') ? 'MAF01' : formsResp[0].id;
+  marcarChip();
+  renderResultado();
   document.getElementById('modal-maf').classList.add('open');
+}
+function seleccionarResultado(formId){ _resForm = formId; marcarChip(); renderResultado(); }
+function marcarChip(){
+  document.querySelectorAll('#res-chips .res-chip').forEach(b => b.classList.toggle('active', b.getAttribute('data-form') === _resForm));
+}
+function renderResultado(){
+  const esMAF = _resForm === 'MAF01';
+  document.getElementById('maf-tabs').style.display = esMAF ? '' : 'none';
+  document.getElementById('maf-btn-hc').style.display = esMAF ? '' : 'none';
+  if(esMAF){
+    _mafTab = 'cat';
+    document.getElementById('maf-tab-cat').classList.add('active');
+    document.getElementById('maf-tab-evo').classList.remove('active');
+    document.getElementById('maf-tab-evo').style.display = respuestasMAF(_mafCC).length > 1 ? '' : 'none';
+    renderMAF();
+  } else {
+    renderEscala(_resForm);
+  }
+}
+function renderEscala(formId){
+  const cfg  = ESCALAS[formId];
+  const cont = document.getElementById('maf-content');
+  const resps = RESPUESTAS_DATA.filter(r => r.cc === _mafCC && r.formId === formId).sort((a,b) => (a.fechaRespuesta||'').localeCompare(b.fechaRespuesta||''));
+  const resp = resps[resps.length-1];
+  const r = resp.respuestas || {};
+  const res = puntuarEscala(formId, r);
+  const filas = cfg.preguntas.map(q => {
+    const v = r[q.id];
+    let etiqueta;
+    if(q.tipo === 'siNo') etiqueta = (v === 1 ? 'Sí' : v === 0 ? 'No' : '—');
+    else etiqueta = (q.etiquetas && q.etiquetas[v] != null) ? `${q.etiquetas[v]} (${v})` : (v != null ? v : '—');
+    return `<div class="esc-fila"><span>${escapeHtml(q.texto)}</span><span class="esc-val">${etiqueta}</span></div>`;
+  }).join('');
+  cont.innerHTML = `
+    <div class="esc-desc">${cfg.descripcion}</div>
+    <div class="esc-score" style="border-color:${res.color}">
+      <div class="esc-score-num" style="color:${res.color}">${res.scoreLabel}</div>
+      <div class="esc-score-band" style="background:${res.color}">${res.interpretacion}</div>
+    </div>
+    ${res.alarma ? `<div class="esc-alarma">⚠️ ${res.alarma}</div>` : ''}
+    <div class="maf-afectadas-h" style="margin-top:18px">Respuestas</div>
+    ${filas}
+    <div class="muted" style="margin-top:10px;font-size:11.5px">Respondido el ${formatFecha(resp.fechaRespuesta)}${resps.length>1 ? ` · ${resps.length} respuestas (se muestra la última)` : ''}</div>`;
 }
 function cambiarTabMAF(t){
   _mafTab = t;
