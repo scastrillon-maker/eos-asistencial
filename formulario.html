@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<!--
+  ════════════════════════════════════════════════════════════════════════
+  CENTRO EOS · FORMULARIO PÚBLICO DEL PACIENTE
+  ════════════════════════════════════════════════════════════════════════
+  Página pública (sin login). Lee ?token=XXX de la URL, valida contra Sheets
+  vía Apps Script, carga el formulario correspondiente y guarda las respuestas.
+  Motor genérico mobile-first con tipos: escala, likert5, likert8, siNo,
+  numero, texto, textarea, seleccion. Soporta el MAF (Cuestionario de Salud
+  Metabólica) con filtrado por sexo, ISI, PSS-4, mYFAS 2.0 y EEQ.
+
+  ⚙️  CONFIGURACIÓN — debe usar la MISMA GAS_URL que asistencial.html
+      (Apps Script de la hoja "EOS Asistencial"). Pega la URL /exec abajo.
+  ════════════════════════════════════════════════════════════════════════
+-->
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>Centro EOS · Tu cuestionario</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,200;0,300;0,400;0,500;0,600;0,700;0,800;1,300&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --texto:#1E1B4B; --fondo:#EDE9DF; --card:#EBEBEB; --arena:#C4B49A;
+  --oscuro:#1A1550; --bosque:#0D4D45; --gris:#3D4A45; --oliva:#6B7055;
+  --esmeralda:#007A60; --primario:#00B4C8; --teal-suave:#92C8D5; --naranja:#D4622A;
+  --radio:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{font-family:'Montserrat',system-ui,sans-serif;background:var(--fondo);color:var(--texto);font-size:16px;overflow:hidden}
+button{font-family:inherit;cursor:pointer}
+input,textarea{font-family:inherit;font-size:17px}
+
+#root{height:100vh;height:100dvh;display:flex;flex-direction:column;position:relative}
+
+/* Barra superior: progreso + pausa */
+.topbar{display:flex;align-items:center;gap:12px;padding:14px 18px;flex-shrink:0}
+.progress-wrap{flex:1}
+.progress-txt{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--oliva);margin-bottom:6px}
+.progress-bar{height:7px;background:var(--arena);border-radius:10px;overflow:hidden}
+.progress-fill{height:100%;background:var(--primario);width:0;border-radius:10px;transition:width .35s ease}
+.btn-pausa{background:none;border:1.5px solid var(--arena);color:var(--oliva);border-radius:30px;padding:7px 14px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px}
+
+/* Área de pregunta */
+.stage{flex:1;position:relative;overflow:hidden}
+.card{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:24px 24px 30px;overflow-y:auto}
+.card.enter-right{animation:slideInR .32s ease both}
+.card.enter-left{animation:slideInL .32s ease both}
+@keyframes slideInR{from{transform:translateX(40px);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes slideInL{from{transform:translateX(-40px);opacity:0}to{transform:translateX(0);opacity:1}}
+
+.q-seccion{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--primario);margin-bottom:12px}
+.q-texto{font-size:20px;font-weight:600;line-height:1.4;color:var(--texto);margin-bottom:26px}
+.opciones{display:flex;flex-direction:column;gap:10px}
+.opcion{
+  width:100%;text-align:left;background:var(--card);border:1.5px solid var(--arena);border-radius:var(--radio);
+  padding:16px 18px;font-size:16px;font-weight:600;color:var(--gris);display:flex;align-items:center;gap:12px;transition:all .12s;
+}
+.opcion:active{transform:scale(.98)}
+.opcion.sel{background:var(--primario);border-color:var(--primario);color:#fff}
+.opcion .num{width:26px;height:26px;border-radius:50%;background:rgba(0,0,0,.06);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0}
+.opcion.sel .num{background:rgba(255,255,255,.22);color:#fff}
+.sino{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.sino .opcion{justify-content:center;font-size:19px;padding:28px 0;font-weight:700}
+.campo{width:100%;padding:16px 18px;border:1.5px solid var(--arena);border-radius:var(--radio);background:#fff;color:var(--texto);outline:none}
+.campo:focus{border-color:var(--primario)}
+textarea.campo{min-height:120px;resize:vertical;line-height:1.5}
+
+.nav{display:flex;align-items:center;gap:12px;padding:16px 24px 26px;flex-shrink:0}
+.btn-volver{background:none;border:none;color:var(--oliva);font-size:15px;font-weight:600;display:flex;align-items:center;gap:6px;padding:8px;opacity:1}
+.btn-volver:disabled{opacity:0;pointer-events:none}
+.btn-continuar{margin-left:auto;background:var(--primario);color:#fff;border:none;border-radius:30px;padding:15px 32px;font-size:16px;font-weight:700}
+.btn-continuar:disabled{opacity:.4}
+
+/* Pantallas completas (welcome / error / fin / pausa / resume) */
+.full{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px 28px;z-index:5}
+.full.dark{background:var(--oscuro);color:#fff}
+.full .icono{font-size:60px;margin-bottom:18px}
+.full h1{font-size:28px;font-weight:800;text-transform:uppercase;letter-spacing:.01em;line-height:1.15;margin-bottom:14px}
+.full .brand{font-size:13px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--teal-suave);margin-bottom:26px}
+.full p{font-size:16px;line-height:1.6;color:rgba(255,255,255,.86);max-width:440px;margin-bottom:14px}
+.full.light{background:var(--fondo)} .full.light h1{color:var(--texto)} .full.light p{color:var(--gris)}
+.full .info-pill{background:rgba(255,255,255,.12);border-radius:30px;padding:8px 18px;font-size:13px;font-weight:600;margin-bottom:24px;display:inline-block}
+.full.light .info-pill{background:var(--card);color:var(--oliva)}
+.btn-grande{background:var(--primario);color:#fff;border:none;border-radius:30px;padding:17px 44px;font-size:17px;font-weight:700;margin-top:8px}
+.btn-grande.outline{background:transparent;border:1.5px solid rgba(255,255,255,.5);color:#fff}
+.resume-actions{display:flex;flex-direction:column;gap:12px;width:100%;max-width:320px;margin-top:10px}
+.hide{display:none!important}
+</style>
+</head>
+<body>
+<div id="root">
+  <!-- Pantalla de carga -->
+  <div class="full light" id="scr-loading"><div class="icono">⏳</div><p style="color:var(--oliva)">Cargando tu cuestionario…</p></div>
+
+  <!-- Error -->
+  <div class="full light hide" id="scr-error">
+    <div class="icono">⚠️</div>
+    <h1 style="font-size:22px" id="err-titulo">Enlace no válido</h1>
+    <p id="err-texto">Verifica que el enlace esté completo o solicita uno nuevo en recepción.</p>
+  </div>
+
+  <!-- Bienvenida -->
+  <div class="full dark hide" id="scr-welcome">
+    <div class="brand">Centro EOS</div>
+    <h1 id="w-titulo">Bienvenido/a</h1>
+    <p id="w-desc"></p>
+    <div class="info-pill" id="w-tiempo"></div>
+    <p id="w-instruccion" style="font-size:14.5px"></p>
+    <button class="btn-grande" onclick="empezar()">Comenzar</button>
+  </div>
+
+  <!-- Reanudar sesión pausada -->
+  <div class="full dark hide" id="scr-resume">
+    <div class="icono">⏸️</div>
+    <h1 style="font-size:24px">Tienes un cuestionario en curso</h1>
+    <p>Guardamos tu progreso. ¿Quieres continuar donde lo dejaste o empezar de nuevo?</p>
+    <div class="resume-actions">
+      <button class="btn-grande" onclick="reanudar()">Continuar</button>
+      <button class="btn-grande outline" onclick="empezarDeNuevo()">Empezar de nuevo</button>
+    </div>
+  </div>
+
+  <!-- Preguntas -->
+  <div class="hide" id="scr-quiz" style="display:flex;flex-direction:column;height:100%">
+    <div class="topbar">
+      <div class="progress-wrap">
+        <div class="progress-txt" id="prog-txt">0% completado</div>
+        <div class="progress-bar"><div class="progress-fill" id="prog-fill"></div></div>
+      </div>
+      <button class="btn-pausa" onclick="pausar()">⏸️ Pausar</button>
+    </div>
+    <div class="stage" id="stage"></div>
+    <div class="nav">
+      <button class="btn-volver" id="btn-volver" onclick="anterior()">← Volver</button>
+      <button class="btn-continuar hide" id="btn-continuar" onclick="continuar()">Continuar</button>
+    </div>
+  </div>
+
+  <!-- Pausado -->
+  <div class="full light hide" id="scr-paused">
+    <div class="icono">💾</div>
+    <h1 style="font-size:23px">Tu progreso ha sido guardado</h1>
+    <p>Puedes cerrar esta página y continuar más tarde usando el mismo enlace. Tu progreso se guarda por 7 días.</p>
+    <button class="btn-grande" onclick="reanudar()">Continuar ahora</button>
+  </div>
+
+  <!-- Confirmación -->
+  <div class="full light hide" id="scr-done">
+    <div class="icono" style="color:var(--esmeralda)">✓</div>
+    <h1 style="font-size:25px;color:var(--esmeralda)">¡Cuestionario enviado!</h1>
+    <p>Gracias por tu tiempo. Tus respuestas se enviaron a tu equipo médico de Centro EOS. Ya puedes cerrar esta página.</p>
+  </div>
+</div>
+
+<script>
+/* ═══════════════ CONFIGURACIÓN ═══════════════ */
+// ⚙️ MISMA URL /exec que asistencial.html (hoja "EOS Asistencial"):
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbyYxHSd5kzXtumun72Ptr7rw2400LEa1rrI7NY6CehwhnmEui8DSuFyjDm5k7tO99zkpQ/exec';
+const PAUSE_EXPIRA_DIAS = 7;
+
+/* ═══════════════ DEFINICIÓN DE FORMULARIOS ═══════════════ */
+const ETI_LIKERT8 = ['Nunca','1 vez/mes','2-3 veces/mes','1 vez/semana','2-3 veces/semana','4-6 veces/semana','Todos los días','Varias veces al día'];
+
+const FORMULARIOS_DISPONIBLES = {
+  'MAF01': {
+    id:'MAF01', nombre:'Cuestionario de Salud Metabólica', tipo:'MAF',
+    bienvenida:{
+      titulo:'Bienvenido/a a tu cuestionario de salud',
+      descripcion:'Este cuestionario es una herramienta clave para que tu médico pueda conocerte mejor y diseñar un plan terapéutico personalizado para ti.',
+      tiempoEstimado:'10 a 15 minutos',
+      instruccion:'Responde con la mayor conciencia posible. No hay respuestas correctas ni incorrectas — lo que importa es que reflejen cómo te has sentido realmente.',
+    },
+  },
+  'ISI01': {
+    id:'ISI01', nombre:'Índice de Severidad del Insomnio (ISI)', tipo:'estandar',
+    bienvenida:{ titulo:'Cuestionario de Sueño', descripcion:'Este cuestionario nos ayuda a evaluar la calidad y los problemas de tu sueño durante las últimas 2 semanas.', tiempoEstimado:'3 a 5 minutos', instruccion:'Por favor responde pensando en cómo ha sido tu sueño en las últimas 2 semanas.' },
+    preguntas:[
+      { id:'isi1', seccion:'Severidad', texto:'Dificultad para quedarse dormido/a', tipo:'likert5', etiquetas:['Ninguna','Leve','Moderada','Grave','Muy grave'] },
+      { id:'isi2', seccion:'Severidad', texto:'Dificultad para mantenerse dormido/a', tipo:'likert5', etiquetas:['Ninguna','Leve','Moderada','Grave','Muy grave'] },
+      { id:'isi3', seccion:'Severidad', texto:'Problema de despertarse demasiado temprano', tipo:'likert5', etiquetas:['Ninguna','Leve','Moderada','Grave','Muy grave'] },
+      { id:'isi4', seccion:'Satisfacción', texto:'¿Qué tan satisfecho/a estás con tu patrón de sueño actual?', tipo:'likert5', etiquetas:['Muy satisfecho/a','Satisfecho/a','Neutral','Insatisfecho/a','Muy insatisfecho/a'] },
+      { id:'isi5', seccion:'Impacto', texto:'¿En qué medida tu problema de sueño es perceptible para los demás en términos de afectar tu calidad de vida?', tipo:'likert5', etiquetas:['Nada','Un poco','Algo','Mucho','Muchísimo'] },
+      { id:'isi6', seccion:'Impacto', texto:'¿Qué tan preocupado/a estás por tu problema de sueño?', tipo:'likert5', etiquetas:['Nada','Un poco','Algo','Mucho','Muchísimo'] },
+      { id:'isi7', seccion:'Impacto', texto:'¿En qué medida tu problema de sueño interfiere con tu funcionamiento diario (fatiga, trabajo, concentración, memoria, ánimo)?', tipo:'likert5', etiquetas:['Nada','Un poco','Algo','Mucho','Muchísimo'] },
+    ],
+  },
+  'PSS01': {
+    id:'PSS01', nombre:'Escala de Estrés Percibido (PSS-4)', tipo:'estandar',
+    bienvenida:{ titulo:'Cuestionario de Estrés', descripcion:'Las siguientes preguntas nos ayudan a entender cómo has experimentado el estrés en el último mes.', tiempoEstimado:'2 a 3 minutos', instruccion:'Por favor responde pensando en cómo te has sentido durante el ÚLTIMO MES.' },
+    preguntas:[
+      { id:'pss1', texto:'En el último mes, ¿con qué frecuencia te has sentido afectado/a por algo que ocurrió inesperadamente?', tipo:'likert5', etiquetas:['Nunca','Casi nunca','A veces','Con bastante frecuencia','Muy a menudo'] },
+      { id:'pss2', texto:'En el último mes, ¿con qué frecuencia te has sentido capaz de controlar las cosas importantes de tu vida?', tipo:'likert5', etiquetas:['Nunca','Casi nunca','A veces','Con bastante frecuencia','Muy a menudo'] },
+      { id:'pss3', texto:'En el último mes, ¿con qué frecuencia te has sentido nervioso/a y estresado/a?', tipo:'likert5', etiquetas:['Nunca','Casi nunca','A veces','Con bastante frecuencia','Muy a menudo'] },
+      { id:'pss4', texto:'En el último mes, ¿con qué frecuencia has podido controlar las dificultades de tu vida?', tipo:'likert5', etiquetas:['Nunca','Casi nunca','A veces','Con bastante frecuencia','Muy a menudo'] },
+    ],
+  },
+  'YFAS01': {
+    id:'YFAS01', nombre:'Escala de Adicción a la Comida (mYFAS 2.0)', tipo:'estandar',
+    bienvenida:{ titulo:'Cuestionario sobre hábitos alimentarios', descripcion:'Este cuestionario evalúa la relación que tienes con ciertos alimentos. No hay respuestas correctas ni incorrectas.', tiempoEstimado:'5 a 7 minutos', instruccion:'Piensa en los alimentos altamente procesados (dulces, snacks, comida rápida, bebidas azucaradas) e indica con qué frecuencia te ha pasado cada situación en los últimos 12 meses.' },
+    preguntas:[
+      { id:'yfas1',  texto:'Cuando empiezo a comer ciertos alimentos, termino comiendo mucho más de lo que había planeado.', tipo:'likert8', etiquetas:ETI_LIKERT8 },
+      { id:'yfas2',  texto:'Sigo comiendo ciertos alimentos aunque ya no tenga hambre.', tipo:'likert8', etiquetas:ETI_LIKERT8 },
+      { id:'yfas3',  texto:'Como hasta sentirme mal físicamente.', tipo:'likert8', etiquetas:ETI_LIKERT8 },
+      { id:'yfas4',  texto:'Me preocupa no comer ciertos tipos de alimentos o me preocupa reducirlos.', tipo:'likert8', etiquetas:ETI_LIKERT8 },
+      { id:'yfas5',  texto:'Paso mucho tiempo sintiéndome lento/a o cansado/a por haber comido en exceso.', tipo:'likert8', etiquetas:ETI_LIKERT8 },
+      { id:'yfas6',  texto:'Me encuentro comiendo ciertos alimentos para no sentirme ansioso/a, triste o irritable.', tipo:'likert8', etiquetas:ETI_LIKERT8 },
+      { id:'yfas7',  texto:'Cuando reduzco o dejo de comer ciertos alimentos, me siento agitado/a, ansioso/a u otros síntomas físicos.', tipo:'likert8', etiquetas:ETI_LIKERT8 },
+      { id:'yfas8',  texto:'Mi conducta con la comida me causa un malestar significativo.', tipo:'likert8', etiquetas:ETI_LIKERT8 },
+      { id:'yfas9',  texto:'Tengo problemas para funcionar de forma efectiva (trabajo, estudio, familia, vida social) debido a la comida.', tipo:'likert8', etiquetas:ETI_LIKERT8 },
+      { id:'yfas10', texto:'He tenido problemas significativos en mi vida (trabajo, estudio, relaciones, salud) debido a la comida.', tipo:'likert8', etiquetas:ETI_LIKERT8 },
+      { id:'yfas11', texto:'¿Tu relación con la comida te causa un malestar emocional importante?', tipo:'siNo' },
+      { id:'yfas12', texto:'¿Tu relación con la comida interfiere de forma importante con tu vida diaria (trabajo, relaciones, actividades)?', tipo:'siNo' },
+    ],
+  },
+  'EEQ01': {
+    id:'EEQ01', nombre:'Cuestionario de Alimentación Emocional (EEQ)', tipo:'estandar',
+    bienvenida:{ titulo:'Cuestionario de Alimentación Emocional', descripcion:'Este cuestionario evalúa la relación entre tus emociones y tus hábitos alimentarios.', tiempoEstimado:'3 a 5 minutos', instruccion:'Por favor responde con sinceridad. No hay respuestas correctas ni incorrectas.' },
+    preguntas:[
+      { id:'eeq1',  texto:'¿Comes más cuando estás estresado/a?', tipo:'escala', etiquetas:['Nunca','A veces','Generalmente','Siempre'] },
+      { id:'eeq2',  texto:'¿Comes más cuando estás aburrido/a?', tipo:'escala', etiquetas:['Nunca','A veces','Generalmente','Siempre'] },
+      { id:'eeq3',  texto:'¿Comes más cuando estás ansioso/a o nervioso/a?', tipo:'escala', etiquetas:['Nunca','A veces','Generalmente','Siempre'] },
+      { id:'eeq4',  texto:'¿Comes más cuando estás triste o deprimido/a?', tipo:'escala', etiquetas:['Nunca','A veces','Generalmente','Siempre'] },
+      { id:'eeq5',  texto:'¿Comes más cuando estás solo/a?', tipo:'escala', etiquetas:['Nunca','A veces','Generalmente','Siempre'] },
+      { id:'eeq6',  texto:'¿Comes más cuando estás enojado/a o frustrado/a?', tipo:'escala', etiquetas:['Nunca','A veces','Generalmente','Siempre'] },
+      { id:'eeq7',  texto:'¿Comes más cuando estás cansado/a?', tipo:'escala', etiquetas:['Nunca','A veces','Generalmente','Siempre'] },
+      { id:'eeq8',  texto:'¿Comes más cuando estás feliz o celebrando algo?', tipo:'escala', etiquetas:['Nunca','A veces','Generalmente','Siempre'] },
+      { id:'eeq9',  texto:'¿Comes más cuando tienes problemas o conflictos con otras personas?', tipo:'escala', etiquetas:['Nunca','A veces','Generalmente','Siempre'] },
+      { id:'eeq10', texto:'¿Comes más cuando sientes que has perdido el control sobre tu alimentación?', tipo:'escala', etiquetas:['Nunca','A veces','Generalmente','Siempre'] },
+    ],
+  },
+};
+
+/* ═══════════════ MAF — datos ═══════════════ */
+const MAF_PREGUNTAS = [
+  { id:'p001', texto:'Siente que sus intestinos no se vacían completamente', soloHombres:false },
+  { id:'p002', texto:'Dolor abdominal que mejora cuando pasa gases o va al baño' },
+  { id:'p003', texto:'Diarrea y estreñimiento alternantes' },
+  { id:'p004', texto:'Diarrea' },
+  { id:'p005', texto:'Estreñimiento' },
+  { id:'p006', texto:'Heces duras, secas o pequeñas' },
+  { id:'p007', texto:'Lengua con capa blanquecina o de aspecto sucio' },
+  { id:'p008', texto:'Muchos gases fétidos' },
+  { id:'p009', texto:'Más de 3 deposiciones al día' },
+  { id:'p010', texto:'Usa laxantes con frecuencia' },
+  { id:'p011', texto:'Aumento de la frecuencia de reacción a los alimentos' },
+  { id:'p012', texto:'Reacciones impredecibles a los alimentos' },
+  { id:'p013', texto:'Dolor o hinchazón por todo el cuerpo' },
+  { id:'p014', texto:'Se le inflama el abdomen de manera impredecible' },
+  { id:'p015', texto:'Se le infla el estómago después de comer' },
+  { id:'p016', texto:'Intolerancia a olores' },
+  { id:'p017', texto:'Intolerancia a joyas' },
+  { id:'p018', texto:'Intolerancia al champú, loción, jabones, etc.' },
+  { id:'p019', texto:'Múltiples sensibilidades a olores y químicos' },
+  { id:'p020', texto:'Brotes frecuentes en la piel' },
+  { id:'p021', texto:'Se le infla el abdomen con frecuencia' },
+  { id:'p022', texto:'Muchos eructos' },
+  { id:'p023', texto:'Gases inmediatamente después de comer' },
+  { id:'p024', texto:'Mal aliento' },
+  { id:'p025', texto:'Sensación de que los intestinos no se mueven bien' },
+  { id:'p026', texto:'Sensación de llenura durante y después de las comidas' },
+  { id:'p027', texto:'Dificultad para digerir proteínas y carnes' },
+  { id:'p028', texto:'Comida sin digerir en las heces' },
+  { id:'p029', texto:'Dolor/ardor estomacal 1-4 horas después de comer' },
+  { id:'p030', texto:'Usa antiácidos' },
+  { id:'p031', texto:'Se siente hambriento una o dos horas después de comer' },
+  { id:'p032', texto:'Agriera al acostarse' },
+  { id:'p033', texto:'Alivio temporal después de usar antiácidos, comer o tomar leche' },
+  { id:'p034', texto:'Los problemas digestivos mejoran con el descanso' },
+  { id:'p035', texto:'Agriera cuando consume comida picante o condimentada, chocolate, alcohol o café' },
+  { id:'p036', texto:'Le cuesta digerir comida con mucha fibra (vegetales)' },
+  { id:'p037', texto:'Indigestión y sensación de llenura por varias horas' },
+  { id:'p038', texto:'Sensibilidad o dolor debajo de las costillas izquierdas' },
+  { id:'p039', texto:'Muchos gases intestinales' },
+  { id:'p040', texto:'Náusea y/o vómito' },
+  { id:'p041', texto:'Heces con alimentos sin digerir, fétidas, con moco o grasa, malformadas' },
+  { id:'p042', texto:'Pérdida frecuente del apetito' },
+  { id:'p043', texto:'Se le infla el estómago después de comer fibra, almidones (granos, papas, yuca) o azúcar' },
+  { id:'p044', texto:'Se le infla el estómago después de comer fermentados o suplementos naturales' },
+  { id:'p045', texto:'Sus intestinos se mueven poco, estreñimiento' },
+  { id:'p046', texto:'Sus intestinos se mueven mucho, diarrea' },
+  { id:'p047', texto:'A veces tiene estreñimiento y a veces diarrea' },
+  { id:'p048', texto:'Sospecha que absorbe mal nutrientes' },
+  { id:'p049', texto:'Usa antiácidos con frecuencia' },
+  { id:'p050', texto:'¿Le han diagnosticado enfermedad celíaca, síndrome de intestino irritable, diverticulosis/diverticulitis, o intestino permeable?', esSiNo:true },
+  { id:'p051', texto:'Le cae mal la comida grasosa' },
+  { id:'p052', texto:'Se le infla el estómago y tiene gases varias horas después de comer' },
+  { id:'p053', texto:'Sabor metálico en la boca, especialmente en la mañana' },
+  { id:'p054', texto:'Tomar aceite de pescado le produce eructos' },
+  { id:'p055', texto:'Le pica la piel sin causa aparente' },
+  { id:'p056', texto:'Ojos amarillentos' },
+  { id:'p057', texto:'El color de las heces alterna entre color arcilla (amarilloso) y color normal' },
+  { id:'p058', texto:'Piel enrojecida especialmente las palmas' },
+  { id:'p059', texto:'Pelo seco o frágil' },
+  { id:'p060', texto:'Ha tenido cálculos en la vesícula', esSiNo:true },
+  { id:'p061', texto:'¿Le han sacado la vesícula?', esSiNo:true },
+  { id:'p062', texto:'La piel no es sana o tiene acné' },
+  { id:'p063', texto:'Se le cae excesivamente el cabello' },
+  { id:'p064', texto:'En general se siente hinchado' },
+  { id:'p065', texto:'Hinchazón de todo el cuerpo en general' },
+  { id:'p066', texto:'Cree que tiene imbalances hormonales' },
+  { id:'p067', texto:'Ganancia de peso en los últimos meses o semanas' },
+  { id:'p068', texto:'Sus intestinos no funcionan bien' },
+  { id:'p069', texto:'La sudoración es abundante y huele muy mal' },
+  { id:'p070', texto:'Necesita comer dulces durante el día' },
+  { id:'p071', texto:'Se pone irritable si se salta alguna comida' },
+  { id:'p072', texto:'Necesita tomar café para mantenerse con energía' },
+  { id:'p073', texto:'Se marea si se salta alguna comida' },
+  { id:'p074', texto:'Comer le alivia la baja energía' },
+  { id:'p075', texto:'Con frecuencia se siente nervioso o tembloroso' },
+  { id:'p076', texto:'Con frecuencia se pone mal genio, nervioso, agitado' },
+  { id:'p077', texto:'Su memoria empeora lejos de las comidas' },
+  { id:'p078', texto:'Visión borrosa' },
+  { id:'p079', texto:'Fatiga o sueño después de las comidas' },
+  { id:'p080', texto:'Comer dulces no le quita las ganas de comer más dulces' },
+  { id:'p081', texto:'Le hace falta un dulce después de las comidas' },
+  { id:'p082', texto:'La circunferencia del abdomen es mayor que las caderas' },
+  { id:'p083', texto:'Orina con frecuencia' },
+  { id:'p084', texto:'Aumento de la sed y del hambre' },
+  { id:'p085', texto:'Tiene dificultades para perder peso' },
+  { id:'p086', texto:'Le cuesta permanecer dormido' },
+  { id:'p087', texto:'Le cuesta activarse en las mañanas' },
+  { id:'p088', texto:'Se siente cansado en las tardes' },
+  { id:'p089', texto:'Se marea cuando se pone de pie rápidamente' },
+  { id:'p090', texto:'Dolor de cabeza en las tardes' },
+  { id:'p091', texto:'Dolor de cabeza cuando hace ejercicio' },
+  { id:'p092', texto:'Uñas débiles' },
+  { id:'p093', texto:'No se duerme fácilmente' },
+  { id:'p094', texto:'Suda con mucha facilidad' },
+  { id:'p095', texto:'Está bajo una gran cantidad de estrés' },
+  { id:'p096', texto:'Gana peso cuando está bajo estrés' },
+  { id:'p097', texto:'Se levanta cansado aunque duerma más de 6 horas' },
+  { id:'p098', texto:'Suda mucho aún con poco ejercicio' },
+  { id:'p099', texto:'Edema e hinchazón en tobillos y muñecas' },
+  { id:'p100', texto:'Tiene calambres musculares con frecuencia' },
+  { id:'p101', texto:'Sus músculos se fatigan rápidamente' },
+  { id:'p102', texto:'Tiene sed con frecuencia' },
+  { id:'p103', texto:'Siente que le hace falta sal con frecuencia' },
+  { id:'p104', texto:'Suda mucho incluso con actividad mínima' },
+  { id:'p105', texto:'Sus movimientos intestinales son irregulares' },
+  { id:'p106', texto:'No es capaz de sostener la respiración porque le da tos' },
+  { id:'p107', texto:'Respiración rápida y superficial' },
+  { id:'p108', texto:'Se siente lento y cansado' },
+  { id:'p109', texto:'Siente las manos y los pies fríos con frecuencia' },
+  { id:'p110', texto:'Necesita dormir muchas horas para funcionar bien' },
+  { id:'p111', texto:'Está ganando peso aunque coma pocas calorías' },
+  { id:'p112', texto:'Gana peso fácilmente' },
+  { id:'p113', texto:'Se siente deprimido, le falta motivación' },
+  { id:'p114', texto:'Dolor de cabeza en las mañanas que luego disminuye' },
+  { id:'p115', texto:'Adelgazamiento de las cejas en la parte lateral' },
+  { id:'p116', texto:'Adelgazamiento del pelo en la cabeza, la cara, los genitales o se le cae excesivamente' },
+  { id:'p117', texto:'Piel seca' },
+  { id:'p118', texto:'Mente lenta' },
+  { id:'p119', texto:'Palpitaciones' },
+  { id:'p120', texto:'Suspiros frecuentes' },
+  { id:'p121', texto:'Frecuencia cardíaca alta incluso en reposo' },
+  { id:'p122', texto:'Nervioso o emocional' },
+  { id:'p123', texto:'Insomnio' },
+  { id:'p124', texto:'Suda mucho en las noches' },
+  { id:'p125', texto:'Le cuesta aumentar de peso' },
+  { id:'p126', texto:'Siente que le hace falta sal' },
+  { id:'p127', texto:'Dificultad para orinar u orina con goteo', soloHombres:true },
+  { id:'p128', texto:'Necesidad de orinar con frecuencia', soloHombres:true },
+  { id:'p129', texto:'Dolor por dentro de las piernas o en los talones', soloHombres:true },
+  { id:'p130', texto:'Siente que no defeca completamente', soloHombres:true },
+  { id:'p131', texto:'Le saltan o le brincan las piernas en la noche', soloHombres:true },
+  { id:'p132', texto:'Disminución del deseo sexual', soloHombres:true },
+  { id:'p133', texto:'Tiene menos erecciones en las mañanas', soloHombres:true },
+  { id:'p134', texto:'Las erecciones no son completas', soloHombres:true },
+  { id:'p135', texto:'Le cuesta mantener las erecciones de la mañana', soloHombres:true },
+  { id:'p136', texto:'Fatiga mental', soloHombres:true },
+  { id:'p137', texto:'Le cuesta concentrarse', soloHombres:true },
+  { id:'p138', texto:'Depresión', soloHombres:true },
+  { id:'p139', texto:'Ardor o dolor en los músculos', soloHombres:true },
+  { id:'p140', texto:'Disminución de la fuerza', soloHombres:true },
+  { id:'p141', texto:'Ganancia de peso sin causa', soloHombres:true },
+  { id:'p142', texto:'Tiene más grasa alrededor del pecho y las caderas', soloHombres:true },
+  { id:'p143', texto:'Episodios de sudoración', soloHombres:true },
+  { id:'p144', texto:'Se siente más emocional que en el pasado', soloHombres:true },
+  { id:'p145', texto:'Está alrededor de la menopausia', soloMujeresMenstruando:true },
+  { id:'p146', texto:'Los ciclos menstruales son de diferentes duraciones', soloMujeresMenstruando:true },
+  { id:'p147', texto:'Tiene ciclos menstruales largos (más de 32 días)', soloMujeresMenstruando:true },
+  { id:'p148', texto:'Tiene ciclos menstruales cortos (menos de 24 días)', soloMujeresMenstruando:true },
+  { id:'p149', texto:'Dolor abdominal bajo con las menstruaciones', soloMujeresMenstruando:true },
+  { id:'p150', texto:'Menstruaciones escasas', soloMujeresMenstruando:true },
+  { id:'p151', texto:'Menstruaciones muy abundantes', soloMujeresMenstruando:true },
+  { id:'p152', texto:'Dolor en las mamas durante la menstruación', soloMujeresMenstruando:true },
+  { id:'p153', texto:'Dolor en la pelvis durante la menstruación', soloMujeresMenstruando:true },
+  { id:'p154', texto:'Irritable o deprimida durante la menstruación', soloMujeresMenstruando:true },
+  { id:'p155', texto:'Acné', soloMujeresMenstruando:true },
+  { id:'p156', texto:'Tiene crecimiento de vello en la cara', soloMujeresMenstruando:true },
+  { id:'p157', texto:'Pérdida de pelo o adelgazamiento', soloMujeresMenstruando:true },
+  { id:'p158', texto:'Olas de calor', soloMujeresMenopausia:true },
+  { id:'p159', texto:'Siente la mente como nublada', soloMujeresMenopausia:true },
+  { id:'p160', texto:'Pérdida de interés en el sexo', soloMujeresMenopausia:true },
+  { id:'p161', texto:'Tiene altibajos en el estado de ánimo', soloMujeresMenopausia:true },
+  { id:'p162', texto:'Depresión', soloMujeresMenopausia:true },
+  { id:'p163', texto:'Las relaciones sexuales son dolorosas', soloMujeresMenopausia:true },
+  { id:'p164', texto:'Las mamas se han encogido', soloMujeresMenopausia:true },
+  { id:'p165', texto:'Crecimiento de vello facial', soloMujeresMenopausia:true },
+  { id:'p166', texto:'Acné', soloMujeresMenopausia:true },
+  { id:'p167', texto:'Dolor vaginal, sequedad o picazón', soloMujeresMenopausia:true },
+];
+const ETI_FREC4 = ['Nunca','Pocas veces','A menudo','Siempre'];
+
+/* Construye la lista completa de preguntas del MAF según el sexo/estado ya respondido */
+function mafConstruirPreguntas(ans){
+  const qs = [];
+  qs.push({ id:'sexo', seccion:'Para personalizar tu cuestionario', texto:'¿Cuál es tu sexo biológico?', tipo:'seleccion', etiquetas:['Hombre','Mujer'] });
+  if(ans.sexo === 'Mujer'){
+    qs.push({ id:'estadoFem', seccion:'Para personalizar tu cuestionario', texto:'¿En qué etapa te encuentras actualmente?', tipo:'seleccion', etiquetas:['Menstruando','Menopausia'] });
+  }
+  // PARTE I — 5 síntomas principales (texto)
+  for(let i=1;i<=5;i++){
+    qs.push({ id:'sintoma'+i, seccion:'Tus principales preocupaciones de salud', texto: i===1 ? 'Describe tu principal síntoma o preocupación de salud' : `Otra preocupación de salud #${i} (opcional)`, tipo:'texto', opcional:i>1 });
+  }
+  // PARTE II — síntomas por categoría (filtrados por sexo/estado, deduplicados)
+  let pres = MAF_PREGUNTAS.filter(p => {
+    if(p.soloHombres) return ans.sexo === 'Hombre';
+    if(p.soloMujeresMenstruando) return ans.sexo === 'Mujer' && ans.estadoFem === 'Menstruando';
+    if(p.soloMujeresMenopausia) return ans.sexo === 'Mujer' && ans.estadoFem === 'Menopausia';
+    return true;
+  });
+  pres = [...new Map(pres.map(p => [p.id, p])).values()];
+  pres.forEach(p => qs.push({ id:p.id, seccion:'¿Con qué frecuencia te ocurre?', texto:p.texto, tipo: p.esSiNo ? 'siNo' : 'escala', etiquetas: p.esSiNo ? null : ETI_FREC4 }));
+  // PARTE III — hábitos
+  const H = 'Tus hábitos';
+  qs.push({ id:'h_alcohol',   seccion:H, texto:'¿Cuántas bebidas alcohólicas consumes por semana?', tipo:'numero' });
+  qs.push({ id:'h_cafeina',   seccion:H, texto:'¿Cuántas bebidas con cafeína consumes al día?', tipo:'numero' });
+  qs.push({ id:'h_calle',     seccion:H, texto:'¿Cuántas comidas haces en la calle por semana?', tipo:'numero' });
+  qs.push({ id:'h_nueces',    seccion:H, texto:'¿Cuántas veces comes nueces o frutos secos por semana?', tipo:'numero' });
+  qs.push({ id:'h_pescado',   seccion:H, texto:'¿Cuántas veces comes pescado por semana?', tipo:'numero' });
+  qs.push({ id:'h_ejercicio', seccion:H, texto:'¿Cuántas veces haces ejercicio por semana?', tipo:'numero' });
+  qs.push({ id:'h_estres',    seccion:H, texto:'En una escala de 1 a 10, ¿cuál es tu nivel de estrés habitual?', tipo:'numero' });
+  qs.push({ id:'h_menos_sanas', seccion:H, texto:'Menciona las 3 comidas menos saludables que sueles consumir', tipo:'textarea' });
+  qs.push({ id:'h_mas_sanos',   seccion:H, texto:'Menciona los 3 alimentos más saludables que sueles consumir', tipo:'textarea' });
+  // PARTE IV — medicamentos y suplementos
+  qs.push({ id:'medicamentos', seccion:'Medicamentos y suplementos', texto:'¿Qué medicamentos tomas actualmente? (escribe "ninguno" si no tomas)', tipo:'textarea', opcional:true });
+  qs.push({ id:'suplementos',  seccion:'Medicamentos y suplementos', texto:'¿Qué suplementos tomas actualmente? (escribe "ninguno" si no tomas)', tipo:'textarea', opcional:true });
+  return qs;
+}
+
+/* ═══════════════ ESTADO ═══════════════ */
+const S = { token:'', cc:'', formId:'', form:null, isMAF:false, preguntas:[], idx:0, answers:{}, dir:'right' };
+const TIPOS_AUTO = ['escala','likert5','likert8','seleccion']; // avance automático
+
+/* ═══════════════ INIT ═══════════════ */
+function showScreen(id){
+  ['scr-loading','scr-error','scr-welcome','scr-resume','scr-quiz','scr-paused','scr-done'].forEach(s => {
+    document.getElementById(s).classList.toggle('hide', s !== id);
+  });
+}
+function mostrarError(titulo, texto){
+  document.getElementById('err-titulo').textContent = titulo;
+  document.getElementById('err-texto').textContent = texto;
+  showScreen('scr-error');
+}
+async function gasRead(sheet){
+  try{ const r = await fetch(`${GAS_URL}?action=read&sheet=${encodeURIComponent(sheet)}`); const d = await r.json(); return d.ok ? (d.rows||d.data) : null; }
+  catch(e){ console.warn('gasRead', e.message); return null; }
+}
+async function gasWrite(sheet, rows){
+  try{ const r = await fetch(GAS_URL,{method:'POST',redirect:'follow',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'write',sheet,rows})}); const d = JSON.parse(await r.text()); return !!d.ok; }
+  catch(e){ console.warn('gasWrite', e.message); return false; }
+}
+async function gasAppend(sheet, row){
+  try{ const r = await fetch(GAS_URL,{method:'POST',redirect:'follow',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'append',sheet,row})}); const d = JSON.parse(await r.text()); return !!d.ok; }
+  catch(e){ console.warn('gasAppend', e.message); return false; }
+}
+function hoy(){ const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+
+async function init(){
+  const params = new URLSearchParams(location.search);
+  S.token = (params.get('token')||'').trim();
+  if(!S.token){ mostrarError('Enlace no válido', 'Este enlace no contiene un código de formulario. Solicita uno nuevo en recepción.'); return; }
+  if(GAS_URL.startsWith('PEGAR_AQUI')){ mostrarError('Configuración pendiente', 'La aplicación aún no está conectada. Avisa al equipo de Centro EOS.'); return; }
+
+  const rows = await gasRead('Tokens');
+  if(!rows){ mostrarError('Sin conexión', 'No pudimos validar tu enlace. Revisa tu conexión a internet e inténtalo de nuevo.'); return; }
+  const fila = rows.slice(1).find(r => String(r[0]) === S.token);
+  if(!fila){ mostrarError('Enlace no válido', 'No encontramos este formulario. Es posible que el enlace esté incompleto.'); return; }
+  S.cc     = String(fila[1]||'');
+  S.formId = String(fila[2]||'');
+  const estado = String(fila[4]||'pendiente');
+  if(estado === 'respondido'){ mostrarError('Ya respondido', 'Este formulario ya fue completado. ¡Gracias! Si crees que es un error, contacta a recepción.'); return; }
+
+  S.form = FORMULARIOS_DISPONIBLES[S.formId];
+  if(!S.form){ mostrarError('Formulario no disponible', 'No reconocemos el tipo de formulario solicitado.'); return; }
+  S.isMAF = S.form.tipo === 'MAF';
+
+  // ¿Hay progreso pausado válido?
+  const saved = leerProgreso();
+  if(saved){ showScreen('scr-resume'); return; }
+  mostrarWelcome();
+}
+
+function mostrarWelcome(){
+  const b = S.form.bienvenida;
+  document.getElementById('w-titulo').textContent = b.titulo;
+  document.getElementById('w-desc').textContent = b.descripcion;
+  document.getElementById('w-tiempo').textContent = '⏱️ ' + b.tiempoEstimado;
+  document.getElementById('w-instruccion').textContent = b.instruccion;
+  showScreen('scr-welcome');
+}
+
+/* ═══════════════ PROGRESO / PAUSA (localStorage) ═══════════════ */
+function claveProgreso(){ return 'eos_progreso_' + S.token; }
+function guardarProgreso(){
+  try{ localStorage.setItem(claveProgreso(), JSON.stringify({ token:S.token, formId:S.formId, indiceActual:S.idx, respuestas:S.answers, fechaPausa:new Date().toISOString() })); }catch(_){}
+}
+function leerProgreso(){
+  try{
+    const raw = localStorage.getItem(claveProgreso()); if(!raw) return null;
+    const p = JSON.parse(raw);
+    const dias = (Date.now() - new Date(p.fechaPausa).getTime()) / 86400000;
+    if(dias > PAUSE_EXPIRA_DIAS){ localStorage.removeItem(claveProgreso()); return null; }
+    return p;
+  }catch(_){ return null; }
+}
+function limpiarProgreso(){ try{ localStorage.removeItem(claveProgreso()); }catch(_){} }
+
+/* ═══════════════ INICIO / REANUDAR ═══════════════ */
+function reconstruirPreguntas(){
+  S.preguntas = S.isMAF ? mafConstruirPreguntas(S.answers) : S.form.preguntas.slice();
+}
+function empezar(){
+  S.answers = {}; S.idx = 0;
+  reconstruirPreguntas();
+  showScreen('scr-quiz');
+  renderPregunta('right');
+}
+function reanudar(){
+  const p = leerProgreso();
+  if(!p){ mostrarWelcome(); return; }
+  S.answers = p.respuestas || {};
+  reconstruirPreguntas();
+  S.idx = Math.min(p.indiceActual || 0, S.preguntas.length - 1);
+  showScreen('scr-quiz');
+  renderPregunta('right');
+}
+function empezarDeNuevo(){ limpiarProgreso(); empezar(); }
+function pausar(){ guardarProgreso(); showScreen('scr-paused'); }
+
+/* ═══════════════ RENDER DE PREGUNTA ═══════════════ */
+function renderPregunta(dir){
+  if(S.isMAF) reconstruirPreguntas(); // la lista puede cambiar tras responder sexo/estado
+  if(S.idx >= S.preguntas.length){ finalizar(); return; }
+  const q = S.preguntas[S.idx];
+  const total = S.preguntas.length;
+  const pct = Math.round((S.idx / total) * 100);
+  document.getElementById('prog-fill').style.width = pct + '%';
+  document.getElementById('prog-txt').textContent = pct < 100 ? `${frase(pct)} — ${pct}% completado` : 'Casi listo';
+  document.getElementById('btn-volver').disabled = S.idx === 0;
+
+  const val = S.answers[q.id];
+  let html = `<div class="q-seccion">${q.seccion || ''}</div><div class="q-texto">${q.texto}</div>`;
+  const auto = TIPOS_AUTO.includes(q.tipo);
+
+  if(q.tipo === 'siNo'){
+    html += `<div class="sino">
+      <button class="opcion ${val===1?'sel':''}" onclick="responder('${q.id}',1,false)">Sí</button>
+      <button class="opcion ${val===0?'sel':''}" onclick="responder('${q.id}',0,false)">No</button></div>`;
+  } else if(auto){
+    html += `<div class="opciones">` + q.etiquetas.map((et, i) => {
+      const selVal = (q.tipo === 'seleccion') ? et : i;
+      const isSel = (q.tipo === 'seleccion') ? (val === et) : (val === i);
+      const numLabel = (q.tipo === 'seleccion') ? '' : `<span class="num">${i}</span>`;
+      return `<button class="opcion ${isSel?'sel':''}" onclick="responder('${q.id}',${q.tipo==='seleccion'?`'${et.replace(/'/g,"\\'")}'`:i},true)">${numLabel}<span>${et}</span></button>`;
+    }).join('') + `</div>`;
+  } else if(q.tipo === 'numero'){
+    html += `<input class="campo" type="number" inputmode="numeric" id="campo-input" value="${val!=null?val:''}" placeholder="Escribe un número" oninput="onCampo('${q.id}')"/>`;
+  } else if(q.tipo === 'textarea'){
+    html += `<textarea class="campo" id="campo-input" placeholder="Escribe aquí…" oninput="onCampo('${q.id}')">${val!=null?String(val).replace(/</g,'&lt;'):''}</textarea>`;
+  } else { // texto
+    html += `<input class="campo" type="text" id="campo-input" value="${val!=null?String(val).replace(/"/g,'&quot;'):''}" placeholder="Escribe aquí…" oninput="onCampo('${q.id}')"/>`;
+  }
+
+  const stage = document.getElementById('stage');
+  stage.innerHTML = `<div class="card ${dir==='left'?'enter-left':'enter-right'}">${html}</div>`;
+
+  // Botón Continuar: visible para tipos no automáticos
+  const btn = document.getElementById('btn-continuar');
+  btn.classList.toggle('hide', auto);
+  if(!auto) actualizarContinuar(q, val);
+}
+function frase(pct){
+  if(pct < 25) return 'Vamos empezando';
+  if(pct < 55) return 'Vas muy bien';
+  if(pct < 85) return 'Ya casi';
+  return 'Excelente';
+}
+function actualizarContinuar(q, val){
+  const btn = document.getElementById('btn-continuar');
+  let ok = true;
+  if(!q.opcional){
+    if(q.tipo === 'siNo') ok = (val === 0 || val === 1);
+    else if(q.tipo === 'numero') ok = (val != null && val !== '' && !isNaN(val));
+    else ok = (val != null && String(val).trim() !== '');
+  }
+  btn.disabled = !ok;
+}
+
+/* ═══════════════ RESPUESTAS ═══════════════ */
+function responder(qid, value, auto){
+  S.answers[qid] = value;
+  guardarProgreso();
+  const q = S.preguntas[S.idx];
+  if(auto){
+    // marcar visualmente y avanzar con transición
+    document.querySelectorAll('.opcion').forEach(o => o.classList.remove('sel'));
+    if(typeof event !== 'undefined' && event && event.currentTarget) event.currentTarget.classList.add('sel');
+    setTimeout(() => { S.idx++; renderPregunta('right'); }, 240);
+  } else {
+    // siNo: marcar selección y habilitar Continuar (sin avance automático)
+    document.querySelectorAll('.sino .opcion').forEach(o => o.classList.remove('sel'));
+    if(typeof event !== 'undefined' && event && event.currentTarget) event.currentTarget.classList.add('sel');
+    actualizarContinuar(q, value);
+  }
+}
+function onCampo(qid){
+  const el = document.getElementById('campo-input');
+  const q = S.preguntas[S.idx];
+  S.answers[qid] = (q.tipo === 'numero') ? (el.value === '' ? '' : Number(el.value)) : el.value;
+  actualizarContinuar(q, S.answers[qid]);
+}
+function continuar(){
+  const q = S.preguntas[S.idx];
+  // Para opcionales sin respuesta, registrar cadena vacía
+  if(S.answers[q.id] == null) S.answers[q.id] = '';
+  guardarProgreso();
+  S.idx++;
+  renderPregunta('right');
+}
+function anterior(){
+  if(S.idx === 0) return;
+  S.idx--;
+  renderPregunta('left');
+}
+
+/* ═══════════════ FINALIZAR ═══════════════ */
+async function finalizar(){
+  showScreen('scr-loading');
+  const payload = JSON.stringify(S.answers);
+  // Los POST de Apps Script se ejecutan en el servidor aunque el navegador no
+  // pueda leer la respuesta (redirect + CORS = falso negativo). Por eso NO
+  // confiamos en el retorno del append: verificamos por lectura (GET es fiable).
+  let ok = await respuestaYaGuardada(); // ¿ya estaba? (reapertura tras falso negativo)
+  for(let intento = 0; intento < 2 && !ok; intento++){
+    await gasAppend('Respuestas', [S.token, S.cc, S.formId, hoy(), payload]);
+    ok = await respuestaYaGuardada();
+  }
+  if(!ok){
+    mostrarError('No pudimos enviar', 'Revisa tu conexión a internet. Tus respuestas están guardadas en este dispositivo — vuelve a abrir el enlace para reintentar.');
+    guardarProgreso();
+    return;
+  }
+  await marcarTokenRespondido();
+  limpiarProgreso();
+  showScreen('scr-done');
+}
+async function respuestaYaGuardada(){
+  const rows = await gasRead('Respuestas');
+  if(!rows) return false;
+  return rows.slice(1).some(r => String(r[0]) === S.token);
+}
+async function marcarTokenRespondido(){
+  // Releer Tokens, marcar este token como respondido y reescribir.
+  // (reescritura completa — contención baja en este flujo; idéntico patrón a V11)
+  const rows = await gasRead('Tokens');
+  if(!rows) return;
+  const out = rows.map((r, i) => {
+    if(i === 0) return r;
+    if(String(r[0]) === S.token){ const c = r.slice(); c[4] = 'respondido'; return c; }
+    return r;
+  });
+  await gasWrite('Tokens', out);
+}
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<!--
+  ════════════════════════════════════════════════════════════════════════
+  CENTRO EOS · APP ASISTENCIAL — Panel clínico interno
+  ════════════════════════════════════════════════════════════════════════
+  Arquitectura: HTML monolítico + vanilla JS + Google Sheets vía Apps Script.
+  Sin framework, sin build. Patrones técnicos tomados de "V11 1.2B.html"
+  (operaciones-eos); el diseño visual es nuevo, según el manual de marca EOS.
+
+  ⚙️  CONFIGURACIÓN REQUERIDA — GAS_URL
+  ───────────────────────────────────────────────────────────────────────
+  1. Crea una hoja nueva de Google Sheets llamada "EOS Asistencial" con las
+     pestañas: Pacientes, Formularios, Respuestas, Tokens, Auditoria.
+  2. Publica un Apps Script (Implementar → Aplicación web) con las acciones
+     read / write / append (mismo contrato que operaciones-eos).
+  3. Pega la URL /exec resultante en la constante GAS_URL (más abajo).
+  4. La MISMA URL debe ir en formulario.html.
+  ════════════════════════════════════════════════════════════════════════
+-->
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Centro EOS · Asistencial</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,200;0,300;0,400;0,500;0,600;0,700;0,800;1,300&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+/* ══════════════════════════════════════════════
+   SISTEMA DE MARCA CENTRO EOS — variables
+══════════════════════════════════════════════ */
+:root{
+  /* Texto base */
+  --color-texto-base:#1E1B4B; --color-texto-variante:#2D2060;
+  /* Neutros claros */
+  --color-fondo-principal:#EDE9DF; --color-fondo-secundario:#EBEBEB; --color-arena:#C4B49A;
+  /* Oscuros / estructura */
+  --color-estructura-oscura:#1A1550; --color-estructura-media:#0D4D45; --color-estructura-gris:#3D4A45;
+  /* Medios naturales */
+  --color-natural-medio:#6B7055; --color-natural-acento:#007A60;
+  /* Acentos teal/cian */
+  --acento-teal-suave:#92C8D5; --acento-teal-medio:#3A8FA0; --acento-teal-marino:#0A3D6B;
+  --acento-verde-agua:#00B890; --acento-primario:#00B4C8;
+  /* Acentos tierra */
+  --acento-melocoton:#F7C4A8; --acento-naranja:#D4622A; --acento-ladrillo:#A84040;
+  /* Acentos púrpura */
+  --acento-holistico:#9B4EBF; --acento-purpura:#4B2E9A;
+  /* Tokens UI */
+  --radio:10px; --radio-l:16px;
+  --sombra:0 1px 3px rgba(30,27,75,.08),0 1px 2px rgba(30,27,75,.06);
+  --sombra-l:0 8px 28px rgba(26,21,80,.16);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:'Montserrat',system-ui,sans-serif;
+  font-size:16px; color:var(--color-estructura-gris);
+  background:var(--color-fondo-principal);
+  -webkit-font-smoothing:antialiased;
+}
+/* Niveles tipográficos de marca */
+.t-hero{font-weight:800;text-transform:uppercase;letter-spacing:-.01em;line-height:1.1;color:var(--color-texto-base)}
+.t-seccion{font-weight:700;text-transform:uppercase;letter-spacing:.02em;color:var(--color-texto-base)}
+.t-apoyo{font-weight:300;text-transform:uppercase;letter-spacing:.18em;line-height:1.65;color:var(--color-estructura-gris)}
+.t-concepto{font-weight:200;color:var(--color-texto-base)} /* caja mixta — única excepción */
+.t-acento{font-weight:700;text-transform:uppercase;letter-spacing:.15em;color:var(--acento-primario)}
+
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit;font-size:15px}
+
+/* ══════════════════════════════════════════════
+   LOGIN
+══════════════════════════════════════════════ */
+#login-screen{
+  position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+  background:var(--color-estructura-oscura);padding:20px;z-index:1000;
+}
+.login-card{
+  width:100%;max-width:400px;background:var(--color-fondo-principal);
+  border-radius:var(--radio-l);padding:40px 34px;box-shadow:var(--sombra-l);
+}
+.login-brand{font-size:30px;letter-spacing:.02em;margin-bottom:4px;text-align:center}
+.login-sub{text-align:center;font-size:11px;margin-bottom:30px}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--color-natural-medio);margin-bottom:6px}
+.field input,.field select{
+  width:100%;padding:12px 14px;border:1.5px solid var(--color-arena);border-radius:var(--radio);
+  background:#fff;color:var(--color-texto-base);outline:none;transition:border-color .15s;
+}
+.field input:focus,.field select:focus{border-color:var(--acento-primario)}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  border:none;border-radius:var(--radio);padding:12px 20px;font-weight:700;font-size:14px;
+  transition:all .15s;line-height:1;
+}
+.btn-primary{background:var(--acento-primario);color:#fff}
+.btn-primary:hover{background:var(--color-estructura-media)}
+.btn-secondary{background:transparent;color:var(--color-texto-base);border:1.5px solid var(--color-texto-base)}
+.btn-secondary:hover{background:rgba(30,27,75,.06)}
+.btn-ghost{background:transparent;color:var(--color-natural-medio);border:1.5px solid var(--color-arena)}
+.btn-ghost:hover{background:rgba(196,180,154,.18)}
+.btn-block{width:100%}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.login-error{color:var(--acento-ladrillo);font-size:12.5px;font-weight:600;min-height:18px;margin-top:10px;text-align:center}
+
+/* ══════════════════════════════════════════════
+   SHELL — sidebar + topbar
+══════════════════════════════════════════════ */
+#app{display:none;min-height:100vh}
+.shell{display:flex;min-height:100vh}
+.sidebar{
+  width:248px;flex-shrink:0;background:var(--color-estructura-oscura);color:#fff;
+  display:flex;flex-direction:column;position:sticky;top:0;height:100vh;
+}
+.sb-brand{padding:24px 22px 18px;border-bottom:1px solid rgba(255,255,255,.1)}
+.sb-brand .b1{font-weight:800;font-size:19px;letter-spacing:.04em;text-transform:uppercase;color:#fff}
+.sb-brand .b2{font-weight:200;font-size:12px;color:var(--acento-teal-suave);margin-top:2px}
+.sb-nav{flex:1;padding:16px 12px;overflow-y:auto}
+.nav-item{
+  display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:var(--radio);
+  color:rgba(255,255,255,.72);font-weight:600;font-size:14.5px;cursor:pointer;
+  border-left:3px solid transparent;margin-bottom:4px;transition:all .12s;
+}
+.nav-item:hover{background:rgba(255,255,255,.07);color:#fff}
+.nav-item.active{background:rgba(0,180,200,.14);color:#fff;border-left-color:var(--acento-primario)}
+.nav-item svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8}
+.sb-user{padding:16px 18px;border-top:1px solid rgba(255,255,255,.1);display:flex;align-items:center;gap:12px}
+.sb-avatar{width:38px;height:38px;border-radius:50%;background:var(--acento-teal-medio);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0}
+.sb-user .nm{font-size:13px;font-weight:700;color:#fff;line-height:1.2}
+.sb-user .rl{font-size:11px;color:var(--acento-teal-suave)}
+.sb-logout{margin-top:2px;font-size:11px;color:rgba(255,255,255,.6);cursor:pointer}
+.sb-logout:hover{color:#fff}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{
+  display:flex;align-items:center;gap:16px;padding:16px 28px;background:var(--color-fondo-principal);
+  border-bottom:1px solid var(--color-arena);position:sticky;top:0;z-index:50;
+}
+.topbar h1{font-size:18px;font-weight:800;text-transform:uppercase;letter-spacing:.01em;color:var(--color-texto-base)}
+.topbar .spacer{flex:1}
+.search-trigger{
+  display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--color-fondo-secundario);
+  border:1.5px solid var(--color-arena);border-radius:30px;color:var(--color-natural-medio);
+  font-size:13px;cursor:pointer;min-width:220px;
+}
+.search-trigger:hover{border-color:var(--acento-teal-medio)}
+.search-trigger kbd{margin-left:auto;background:#fff;border:1px solid var(--color-arena);border-radius:5px;padding:1px 6px;font-size:11px;font-family:inherit}
+.conn{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--color-natural-medio);font-weight:600}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--color-arena)}
+.dot.ok{background:var(--acento-verde-agua)} .dot.error{background:var(--acento-ladrillo)} .dot.loading{background:var(--acento-naranja);animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.4}}
+.topbar-date{font-size:12px;color:var(--color-natural-medio)}
+
+.content{padding:28px;flex:1}
+.page{display:none}
+.page.active{display:block}
+
+/* ══════════════════════════════════════════════
+   COMPONENTES
+══════════════════════════════════════════════ */
+.card{background:var(--color-fondo-secundario);border:1.5px solid var(--color-arena);border-radius:var(--radio-l);padding:22px}
+.section-head{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+.section-head h2{font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--color-texto-base)}
+.section-head .spacer{flex:1}
+.muted{color:var(--color-natural-medio);font-size:13px}
+.empty{text-align:center;padding:48px 20px;color:var(--color-natural-medio)}
+.empty .ic{font-size:40px;margin-bottom:12px}
+
+.input-search{
+  width:100%;max-width:420px;padding:11px 16px;border:1.5px solid var(--color-arena);
+  border-radius:30px;background:#fff;color:var(--color-texto-base);outline:none;margin-bottom:18px;
+}
+.input-search:focus{border-color:var(--acento-primario)}
+
+.plist{display:flex;flex-direction:column;gap:10px}
+.prow{
+  display:flex;align-items:center;gap:14px;padding:14px 18px;background:#fff;
+  border:1.5px solid var(--color-arena);border-radius:var(--radio);cursor:pointer;transition:all .12s;
+}
+.prow:hover{border-color:var(--acento-teal-medio);transform:translateY(-1px);box-shadow:var(--sombra)}
+.pav{width:42px;height:42px;border-radius:50%;background:var(--acento-teal-suave);color:var(--color-estructura-oscura);display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0}
+.prow .nm{font-weight:700;color:var(--color-texto-base);font-size:15px}
+.prow .meta{font-size:12.5px;color:var(--color-natural-medio)}
+
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:.03em}
+.badge-revisar{background:#f3e6fb;color:var(--acento-holistico)}
+.badge-pend{background:#fdeee2;color:var(--acento-naranja)}
+.badge-ok{background:#e0f5ee;color:var(--color-natural-acento)}
+
+.tabs{display:flex;gap:4px;border-bottom:1.5px solid var(--color-arena);margin-bottom:20px}
+.tab{padding:10px 18px;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--color-natural-medio);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1.5px}
+.tab.active{color:var(--color-texto-base);border-bottom-color:var(--acento-primario)}
+
+.form-card{background:#fff;border:1.5px solid var(--color-arena);border-radius:var(--radio);padding:16px 18px;display:flex;align-items:center;gap:14px;margin-bottom:10px}
+.form-card .fic{width:42px;height:42px;border-radius:var(--radio);background:var(--acento-teal-suave);color:var(--color-estructura-oscura);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.form-card .nm{font-weight:700;color:var(--color-texto-base);font-size:14.5px}
+.form-card .meta{font-size:12px;color:var(--color-natural-medio)}
+
+/* Modales */
+.modal-overlay{position:fixed;inset:0;background:rgba(26,21,80,.5);display:none;align-items:center;justify-content:center;padding:20px;z-index:500}
+.modal-overlay.open{display:flex}
+.modal{background:var(--color-fondo-principal);border-radius:var(--radio-l);width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:var(--sombra-l)}
+.modal-wide{max-width:720px}
+.modal-header{display:flex;align-items:center;padding:20px 24px;border-bottom:1px solid var(--color-arena)}
+.modal-header h3{font-size:16px;font-weight:800;text-transform:uppercase;letter-spacing:.02em;color:var(--color-texto-base)}
+.modal-close{margin-left:auto;background:none;border:none;font-size:24px;color:var(--color-natural-medio);line-height:1}
+.modal-body{padding:22px 24px}
+.modal-footer{display:flex;gap:10px;justify-content:flex-end;padding:16px 24px;border-top:1px solid var(--color-arena)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-grid .full{grid-column:1/-1}
+.doc-row{display:flex;gap:8px}
+.doc-row select{flex:0 0 84px}
+
+.link-box{display:flex;gap:8px;margin-top:6px}
+.link-box input{flex:1;padding:11px 14px;border:1.5px solid var(--color-arena);border-radius:var(--radio);background:#fff;font-size:12.5px;color:var(--color-texto-base);font-family:monospace}
+
+/* Toast */
+#toast{position:fixed;bottom:24px;right:24px;background:var(--color-estructura-oscura);color:#fff;border-radius:var(--radio);padding:14px 18px;max-width:340px;box-shadow:var(--sombra-l);opacity:0;transform:translateY(12px);pointer-events:none;transition:all .25s;z-index:900;border-left:4px solid var(--acento-primario)}
+#toast.show{opacity:1;transform:translateY(0)}
+#toast.verde{border-left-color:var(--color-natural-acento)} #toast.rojo{border-left-color:var(--acento-ladrillo)} #toast.amber{border-left-color:var(--acento-naranja)}
+#toast .tt{font-weight:700;font-size:13.5px;margin-bottom:2px}
+#toast .tb{font-size:12.5px;color:rgba(255,255,255,.82)}
+
+/* Búsqueda global Cmd+K */
+#cmdk{position:fixed;inset:0;background:rgba(26,21,80,.45);display:none;align-items:flex-start;justify-content:center;padding-top:12vh;z-index:800}
+#cmdk.open{display:flex}
+.cmdk-box{width:100%;max-width:520px;background:var(--color-fondo-principal);border-radius:var(--radio-l);box-shadow:var(--sombra-l);overflow:hidden}
+.cmdk-box input{width:100%;padding:18px 22px;border:none;outline:none;font-size:17px;background:#fff;color:var(--color-texto-base)}
+.cmdk-results{max-height:50vh;overflow-y:auto}
+.cmdk-item{padding:13px 22px;cursor:pointer;border-top:1px solid var(--color-arena);display:flex;gap:12px;align-items:center}
+.cmdk-item:hover,.cmdk-item.sel{background:var(--color-fondo-secundario)}
+
+@media(max-width:760px){
+  .sidebar{position:fixed;left:-260px;z-index:200;transition:left .2s} .sidebar.open{left:0}
+  .form-grid{grid-template-columns:1fr}
+  .search-trigger{min-width:0}
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════ LOGIN ══════════ -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-brand t-hero">CENTRO EOS</div>
+    <div class="login-sub t-acento">ASISTENCIAL</div>
+    <div class="field">
+      <label>Usuario</label>
+      <select id="login-user"><option value="">Selecciona tu usuario…</option></select>
+    </div>
+    <div class="field">
+      <label>Contraseña</label>
+      <input type="password" id="login-pass" placeholder="••••" onkeydown="if(event.key==='Enter')doLogin()"/>
+    </div>
+    <button class="btn btn-primary btn-block" onclick="doLogin()">Ingresar</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- ══════════ APP ══════════ -->
+<div id="app">
+  <div class="shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sb-brand">
+        <div class="b1">CENTRO EOS</div>
+        <div class="b2">Asistencial</div>
+      </div>
+      <nav class="sb-nav" id="sb-nav"></nav>
+      <div class="sb-user">
+        <div class="sb-avatar" id="sb-avatar">··</div>
+        <div>
+          <div class="nm" id="sb-name">—</div>
+          <div class="rl" id="sb-role">—</div>
+          <div class="sb-logout" onclick="doLogout()">Cerrar sesión</div>
+        </div>
+      </div>
+    </aside>
+    <div class="main">
+      <header class="topbar">
+        <h1 id="topbar-title">Pacientes</h1>
+        <div class="spacer"></div>
+        <div class="search-trigger" onclick="abrirCmdK()">
+          🔍 Buscar paciente <kbd>⌘K</kbd>
+        </div>
+        <div class="conn"><span class="dot" id="sheets-dot"></span><span id="sheets-label">—</span></div>
+        <div class="topbar-date" id="topbar-date"></div>
+      </header>
+      <div class="content">
+        <div class="page" id="page-pacientes"></div>
+        <div class="page" id="page-comunicacion"></div>
+        <div class="page" id="page-metricas"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MODAL: PACIENTE (crear/editar) ══════════ -->
+<div class="modal-overlay" id="modal-paciente">
+  <div class="modal">
+    <div class="modal-header"><h3 id="mp-titulo">Nuevo paciente</h3><button class="modal-close" onclick="closeModal('modal-paciente')">×</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="field full">
+          <label>Documento *</label>
+          <div class="doc-row">
+            <select id="mp-tipodoc"><option>CC</option><option>TI</option><option>DIE</option></select>
+            <input type="text" id="mp-cc" placeholder="Número de documento"/>
+          </div>
+        </div>
+        <div class="field full"><label>Nombre completo *</label><input type="text" id="mp-nombre" placeholder="Nombre y apellidos"/></div>
+        <div class="field"><label>Fecha de nacimiento</label><input type="date" id="mp-nacimiento"/></div>
+        <div class="field"><label>Teléfono</label><input type="text" id="mp-telefono" placeholder="3001234567"/></div>
+        <div class="field full"><label>Email</label><input type="email" id="mp-email" placeholder="correo@ejemplo.com"/></div>
+        <div class="field full"><label>Médico tratante</label><select id="mp-medico"></select></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-paciente')">Cancelar</button>
+      <button class="btn btn-primary" id="mp-btn" onclick="guardarPaciente()">Guardar paciente</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MODAL: PERFIL DE PACIENTE ══════════ -->
+<div class="modal-overlay" id="modal-perfil">
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <h3 id="pf-nombre">Paciente</h3>
+      <button class="modal-close" onclick="closeModal('modal-perfil')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="muted" id="pf-sub" style="margin-bottom:16px"></div>
+      <div class="tabs">
+        <div class="tab active" id="pftab-formularios" onclick="cambiarTabPerfil('formularios')">Formularios</div>
+        <div class="tab" id="pftab-score" onclick="cambiarTabPerfil('score')">Score</div>
+        <div class="tab" id="pftab-plan" onclick="cambiarTabPerfil('plan')">Plan</div>
+      </div>
+      <div id="pf-contenido"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="editarPaciente()">✎ Editar datos</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-perfil')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MODAL: LINK GENERADO ══════════ -->
+<div class="modal-overlay" id="modal-link">
+  <div class="modal">
+    <div class="modal-header"><h3>Formulario enviado</h3><button class="modal-close" onclick="closeModal('modal-link')">×</button></div>
+    <div class="modal-body">
+      <p class="muted" id="ml-info" style="margin-bottom:14px"></p>
+      <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--color-natural-medio)">Link para el paciente</label>
+      <div class="link-box">
+        <input type="text" id="ml-link" readonly onclick="this.select()"/>
+        <button class="btn btn-primary" onclick="copiarLink()">Copiar</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" id="ml-wa">📲 Enviar por WhatsApp</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-link')">Listo</button>
+    </div>
+  </div>
+</div>
+
+<!-- Búsqueda global -->
+<div id="cmdk"><div class="cmdk-box">
+  <input type="text" id="cmdk-input" placeholder="Buscar paciente por nombre o documento…" oninput="filtrarCmdK()"/>
+  <div class="cmdk-results" id="cmdk-results"></div>
+</div></div>
+
+<!-- Toast -->
+<div id="toast"><div class="tt" id="toast-title"></div><div class="tb" id="toast-body"></div></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   1. CONFIGURACIÓN
+═══════════════════════════════════════════════════════════ */
+// ⚙️ PEGAR AQUÍ la URL /exec del Apps Script de la hoja "EOS Asistencial":
+const GAS_URL   = 'https://script.google.com/macros/s/AKfycbyYxHSd5kzXtumun72Ptr7rw2400LEa1rrI7NY6CehwhnmEui8DSuFyjDm5k7tO99zkpQ/exec';
+// Base pública donde se aloja formulario.html (GitHub Pages del repo eos-asistencial):
+const FORM_BASE = 'https://scastrillon-maker.github.io/eos-asistencial/formulario.html';
+
+const USUARIOS = {
+  med1:   { nombre: 'Dr. Sebastian Castrillon',  rol: 'Médico',         color:'#0A3D6B', pass: '1234' },
+  med2:   { nombre: 'Dra. Angelica Bermudez',    rol: 'Médico',         color:'#0A3D6B', pass: '1234' },
+  enf1:   { nombre: 'Enf. Alejandra López',      rol: 'Enfermera',      color:'#0D4D45', pass: '1234' },
+  recep1: { nombre: 'Recep. Natalia Giraldo',    rol: 'Recepcionista',  color:'#6B7055', pass: '1234' },
+  admin:  { nombre: 'Aux. Luisa Fernanda López', rol: 'Administradora', color:'#4B2E9A', pass: '1234' },
+};
+
+const MEDICOS = ['Dr. Sebastian Castrillon','Dra. Angelica Bermudez'];
+
+// 3 destinos del sidebar
+const NAV_CONFIG = {
+  med1:   ['pacientes'],
+  med2:   ['pacientes'],
+  enf1:   ['comunicacion','pacientes'],
+  recep1: ['pacientes'],
+  admin:  ['pacientes','comunicacion','metricas'],
+};
+const NAV_META = {
+  pacientes:    { label:'Pacientes',     icon:'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 7a4 4 0 1 0 0 8 4 4 0 0 0 0-8 M23 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75' },
+  comunicacion: { label:'Comunicación',  icon:'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z' },
+  metricas:     { label:'Métricas',      icon:'M18 20V10 M12 20V4 M6 20v-6' },
+};
+// Quién puede enviar formularios
+const PUEDE_ENVIAR = ['Médico','Recepcionista','Administradora'];
+
+// Catálogo de formularios (la definición completa vive en formulario.html)
+const FORMULARIOS_CATALOGO = [
+  { id:'MAF01',  nombre:'Cuestionario de Salud Metabólica',        tiempo:'10–15 min', icon:'🩺' },
+  { id:'ISI01',  nombre:'Índice de Severidad del Insomnio (ISI)',  tiempo:'3–5 min',   icon:'🌙' },
+  { id:'PSS01',  nombre:'Escala de Estrés Percibido (PSS-4)',      tiempo:'2–3 min',   icon:'🧠' },
+  { id:'YFAS01', nombre:'Escala de Adicción a la Comida (mYFAS)',  tiempo:'5–7 min',   icon:'🍔' },
+  { id:'EEQ01',  nombre:'Alimentación Emocional (EEQ)',            tiempo:'3–5 min',   icon:'💗' },
+];
+
+/* ═══════════════════════════════════════════════════════════
+   2. ESTADO GLOBAL
+═══════════════════════════════════════════════════════════ */
+let currentUser = null, currentPage = null;
+let sheetsOk = false, _syncing = false, _saving = false;
+let _syncTimer = null, _autoSync = false;
+let _idleTimer = null, _idleWarnTimer = null;
+
+const PACIENTES_DATA = [];
+const TOKENS_DATA    = [];
+const RESPUESTAS_DATA= [];
+const AUDIT_LOG      = [];
+
+let _pfCC = null, _pfTab = 'formularios', _pacFiltro = '', _editandoCC = null, _cmdkSel = 0;
+
+/* ═══════════════════════════════════════════════════════════
+   3. ACCESO A SHEETS (contrato idéntico a operaciones-eos)
+═══════════════════════════════════════════════════════════ */
+async function gasRead(sheet){
+  try{ const r = await fetch(`${GAS_URL}?action=read&sheet=${encodeURIComponent(sheet)}`); const d = await r.json(); return d.ok ? (d.rows||d.data) : null; }
+  catch(e){ console.warn(`gasRead(${sheet}):`, e.message); return null; }
+}
+async function gasWrite(sheet, rows){
+  try{ const r = await fetch(GAS_URL,{method:'POST',redirect:'follow',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'write',sheet,rows})}); const d = JSON.parse(await r.text()); return !!d.ok; }
+  catch(e){ console.warn(`gasWrite(${sheet}):`, e.message); return false; }
+}
+async function gasAppend(sheet, row){
+  try{ const r = await fetch(GAS_URL,{method:'POST',redirect:'follow',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'append',sheet,row})}); const d = JSON.parse(await r.text()); return !!d.ok; }
+  catch(e){ console.warn(`gasAppend(${sheet}):`, e.message); return false; }
+}
+function setDot(estado){
+  const dot = document.getElementById('sheets-dot'), label = document.getElementById('sheets-label');
+  if(!dot||!label) return;
+  dot.className = 'dot ' + estado;
+  label.textContent = { ok:'Conectado', error:'Sin conexión', loading:'Sincronizando…' }[estado] || '';
+}
+
+/* ═══════════════════════════════════════════════════════════
+   4. SERIALIZACIÓN rows ↔ objetos
+   Pacientes:  cc | tipoDoc | nombre | fechaNacimiento | telefono | email | medicoTratante | fechaRegistro | activo
+   Tokens:     token | cc | formId | fechaEnvio | estado
+   Respuestas: token | cc | formId | fechaRespuesta | respuestas(JSON)
+═══════════════════════════════════════════════════════════ */
+function rowsToPacientes(rows){
+  if(!rows || rows.length < 2) return false;
+  PACIENTES_DATA.length = 0;
+  rows.slice(1).forEach(r => {
+    if(!r[0]) return;
+    PACIENTES_DATA.push({
+      cc:String(r[0]), tipoDoc:String(r[1]||'CC'), nombre:String(r[2]||''),
+      fechaNacimiento:String(r[3]||'').slice(0,10), telefono:String(r[4]||''),
+      email:String(r[5]||''), medicoTratante:String(r[6]||''),
+      fechaRegistro:String(r[7]||'').slice(0,10), activo:String(r[8]||'si'),
+    });
+  });
+  return true;
+}
+function pacientesToRows(){
+  const h = ['cc','tipoDoc','nombre','fechaNacimiento','telefono','email','medicoTratante','fechaRegistro','activo'];
+  return [h, ...PACIENTES_DATA.map(p => [p.cc,p.tipoDoc,p.nombre,p.fechaNacimiento,p.telefono,p.email,p.medicoTratante,p.fechaRegistro,p.activo])];
+}
+function rowsToTokens(rows){
+  if(!rows || rows.length < 2) return;
+  TOKENS_DATA.length = 0;
+  rows.slice(1).forEach(r => { if(!r[0]) return;
+    TOKENS_DATA.push({ token:String(r[0]), cc:String(r[1]||''), formId:String(r[2]||''), fechaEnvio:String(r[3]||'').slice(0,10), estado:String(r[4]||'pendiente') });
+  });
+}
+function tokensToRows(){
+  const h = ['token','cc','formId','fechaEnvio','estado'];
+  return [h, ...TOKENS_DATA.map(t => [t.token,t.cc,t.formId,t.fechaEnvio,t.estado])];
+}
+function rowsToRespuestas(rows){
+  if(!rows || rows.length < 2) return;
+  RESPUESTAS_DATA.length = 0;
+  rows.slice(1).forEach(r => { if(!r[0]) return;
+    let resp = {}; try{ resp = JSON.parse(r[4]||'{}'); }catch(_){}
+    RESPUESTAS_DATA.push({ token:String(r[0]), cc:String(r[1]||''), formId:String(r[2]||''), fechaRespuesta:String(r[3]||'').slice(0,10), respuestas:resp });
+  });
+}
+function rowsToAudit(rows){
+  if(!rows || rows.length < 2) return;
+  AUDIT_LOG.length = 0;
+  rows.slice(1).forEach(r => { if(!r[0]) return;
+    AUDIT_LOG.push({ fecha:String(r[0]), hora:String(r[1]||''), usuario:String(r[2]||''), rol:String(r[3]||''), accion:String(r[4]||''), detalle:String(r[5]||''), estado:String(r[6]||'ok') });
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   5. CARGA Y SYNC
+═══════════════════════════════════════════════════════════ */
+async function cargarDesdeSheets(){
+  if(_syncing || _saving) return;
+  _syncing = true; setDot('loading');
+  try{
+    const [pac, tok, resp, aud] = await Promise.all([
+      gasRead('Pacientes'), gasRead('Tokens'), gasRead('Respuestas'), gasRead('Auditoria'),
+    ]);
+    try{ rowsToPacientes(pac); }catch(e){ console.warn('rowsToPacientes',e); }
+    try{ rowsToTokens(tok); }catch(e){ console.warn('rowsToTokens',e); }
+    try{ rowsToRespuestas(resp); }catch(e){ console.warn('rowsToRespuestas',e); }
+    try{ rowsToAudit(aud); }catch(e){ console.warn('rowsToAudit',e); }
+    sheetsOk = true; setDot('ok');
+    if(!_autoSync) mostrarToast('✅ Sincronizado', `${PACIENTES_DATA.length} pacientes · ${TOKENS_DATA.length} envíos`, 'verde');
+    _autoSync = false;
+    if(!_saving) refrescarVista();
+  }catch(e){
+    sheetsOk = false; setDot('error');
+    mostrarToast('⚠️ Sin conexión', 'Revisa la red o la configuración de GAS_URL', 'rojo');
+    console.error('cargarDesdeSheets', e);
+  }finally{ _syncing = false; }
+}
+function iniciarSyncAuto(){
+  if(_syncTimer) clearInterval(_syncTimer);
+  _syncTimer = setInterval(() => { if(!document.hidden && !_saving){ _autoSync = true; cargarDesdeSheets(); } }, 120000);
+}
+function refrescarVista(){
+  const b = { pacientes:buildPacientes, comunicacion:buildComunicacion, metricas:buildMetricas }[currentPage];
+  if(b) b();
+  if(document.getElementById('modal-perfil').classList.contains('open') && _pfCC) renderPerfil();
+}
+
+async function logAudit(accion, detalle, estado='ok'){
+  const e = { fecha:hoy(), hora:horaActual(), usuario:currentUser?.id||'', rol:currentUser?.rol||'', accion, detalle, estado };
+  AUDIT_LOG.unshift(e);
+  await gasAppend('Auditoria', [e.fecha,e.hora,e.usuario,e.rol,e.accion,e.detalle,e.estado]);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   6. AUTH
+═══════════════════════════════════════════════════════════ */
+function doLogin(){
+  const userId = document.getElementById('login-user').value;
+  const pass   = document.getElementById('login-pass').value;
+  const err    = document.getElementById('login-error');
+  err.textContent = '';
+  if(!userId){ err.textContent = 'Selecciona un usuario'; return; }
+  if(!USUARIOS[userId] || pass !== USUARIOS[userId].pass){ err.textContent = 'Contraseña incorrecta'; return; }
+  currentUser = { id:userId, ...USUARIOS[userId] };
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  setupShell();
+  cargarDesdeSheets();
+  iniciarSyncAuto();
+  iniciarIdleTimer();
+}
+function iniciarIdleTimer(){
+  resetearIdleTimer();
+  document.addEventListener('mousedown', resetearIdleTimer);
+  document.addEventListener('keydown', resetearIdleTimer);
+  document.addEventListener('scroll', resetearIdleTimer, true);
+}
+function resetearIdleTimer(){
+  if(_idleWarnTimer){ clearTimeout(_idleWarnTimer); _idleWarnTimer = null; }
+  if(_idleTimer){ clearTimeout(_idleTimer); _idleTimer = null; }
+  if(!currentUser) return;
+  _idleWarnTimer = setTimeout(() => mostrarToast('⚠️ Sesión por expirar', 'Se cerrará en 1 minuto por inactividad.', 'amber'), 19*60*1000);
+  _idleTimer = setTimeout(() => cerrarPorInactividad(0), 20*60*1000);
+}
+function limpiarIdleTimer(){
+  if(_idleWarnTimer){ clearTimeout(_idleWarnTimer); _idleWarnTimer = null; }
+  if(_idleTimer){ clearTimeout(_idleTimer); _idleTimer = null; }
+  document.removeEventListener('mousedown', resetearIdleTimer);
+  document.removeEventListener('keydown', resetearIdleTimer);
+  document.removeEventListener('scroll', resetearIdleTimer, true);
+}
+function cerrarPorInactividad(intentos){
+  if(_saving && intentos < 5){ setTimeout(() => cerrarPorInactividad(intentos+1), 2000); return; }
+  doLogout(); mostrarToast('🔒 Sesión cerrada', 'Cerrada por inactividad.', 'amber');
+}
+function doLogout(){
+  limpiarIdleTimer();
+  if(_syncTimer){ clearInterval(_syncTimer); _syncTimer = null; }
+  currentUser = null; sheetsOk = false;
+  PACIENTES_DATA.length = 0; TOKENS_DATA.length = 0; RESPUESTAS_DATA.length = 0; AUDIT_LOG.length = 0;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('login-user').value = '';
+  document.getElementById('login-pass').value = '';
+}
+
+/* ═══════════════════════════════════════════════════════════
+   7. SHELL + NAV
+═══════════════════════════════════════════════════════════ */
+function setupShell(){
+  const u = currentUser;
+  const ini = u.nombre.split(' ').map(w => w[0]).join('').replace(/[^A-Za-zÀ-ÿ]/g,'').slice(0,2).toUpperCase();
+  document.getElementById('sb-avatar').textContent = ini;
+  document.getElementById('sb-avatar').style.background = u.color;
+  document.getElementById('sb-name').textContent = u.nombre;
+  document.getElementById('sb-role').textContent = u.rol;
+  document.getElementById('topbar-date').textContent = fechaLarga();
+  // Médico tratante por defecto en modal paciente
+  document.getElementById('mp-medico').innerHTML = '<option value="">— Sin asignar —</option>' + MEDICOS.map(m => `<option>${m}</option>`).join('');
+  buildNav();
+  navigateTo((NAV_CONFIG[u.id]||['pacientes'])[0]);
+}
+function buildNav(){
+  const permitidas = NAV_CONFIG[currentUser.id] || [];
+  let html = '';
+  ['pacientes','comunicacion','metricas'].forEach(p => {
+    if(!permitidas.includes(p)) return;
+    const m = NAV_META[p];
+    html += `<div class="nav-item" id="nav-${p}" onclick="navigateTo('${p}')"><svg viewBox="0 0 24 24"><path d="${m.icon}"/></svg>${m.label}</div>`;
+  });
+  document.getElementById('sb-nav').innerHTML = html;
+}
+function navigateTo(pagina){
+  if(!NAV_CONFIG[currentUser.id]?.includes(pagina)) return;
+  document.getElementById(`page-${currentPage}`)?.classList.remove('active');
+  document.getElementById(`nav-${currentPage}`)?.classList.remove('active');
+  currentPage = pagina;
+  document.getElementById(`page-${pagina}`)?.classList.add('active');
+  document.getElementById(`nav-${pagina}`)?.classList.add('active');
+  document.getElementById('topbar-title').textContent = NAV_META[pagina]?.label || pagina;
+  ({ pacientes:buildPacientes, comunicacion:buildComunicacion, metricas:buildMetricas }[pagina] || (()=>{}))();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   8. MODALES + TOAST
+═══════════════════════════════════════════════════════════ */
+function closeModal(id){ document.getElementById(id)?.classList.remove('open'); }
+window.addEventListener('DOMContentLoaded', () => {
+  // Poblar selector de usuario del login
+  const sel = document.getElementById('login-user');
+  Object.entries(USUARIOS).forEach(([id, u]) => {
+    const o = document.createElement('option'); o.value = id; o.textContent = u.nombre; sel.appendChild(o);
+  });
+  document.addEventListener('click', e => { if(e.target.classList.contains('modal-overlay')) e.target.classList.remove('open'); });
+  document.addEventListener('keydown', e => {
+    if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); if(currentUser) abrirCmdK(); }
+    if(e.key==='Escape'){ closeModal('cmdk'); }
+  });
+});
+let _toastTimer = null;
+function mostrarToast(titulo, cuerpo='', tipo=''){
+  const el = document.getElementById('toast');
+  document.getElementById('toast-title').textContent = titulo;
+  document.getElementById('toast-body').textContent = cuerpo;
+  el.className = tipo ? `show ${tipo}` : 'show';
+  if(_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { el.className = el.className.replace('show','').trim(); }, 4500);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   9. UTILIDADES
+═══════════════════════════════════════════════════════════ */
+const hoy        = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+const horaActual = () => { const d = new Date(); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
+const fechaLarga = () => new Date().toLocaleDateString('es-CO',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+function iniciales(nombre){ return (nombre||'').split(' ').filter(Boolean).map(w => w[0]).slice(0,2).join('').toUpperCase(); }
+function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function formatFecha(iso){ if(!iso) return '—'; try{ return new Date(iso.length===10?iso+'T12:00:00':iso).toLocaleDateString('es-CO',{day:'numeric',month:'short',year:'numeric'}); }catch(_){ return iso; } }
+function nombreForm(formId){ return (FORMULARIOS_CATALOGO.find(f => f.id===formId)||{}).nombre || formId; }
+function tokensDePaciente(cc){ return TOKENS_DATA.filter(t => t.cc===cc); }
+function respondidosSinRevisar(cc){ return TOKENS_DATA.filter(t => t.cc===cc && t.estado==='respondido').length; }
+
+/* ═══════════════════════════════════════════════════════════
+   10. MÓDULO PACIENTES
+═══════════════════════════════════════════════════════════ */
+function buildPacientes(){
+  const cont = document.getElementById('page-pacientes');
+  const puedeCrear = ['Recepcionista','Administradora','Médico'].includes(currentUser.rol);
+  const q = _pacFiltro.trim().toLowerCase();
+  const lista = PACIENTES_DATA
+    .filter(p => p.activo !== 'no')
+    .filter(p => !q || p.nombre.toLowerCase().includes(q) || p.cc.includes(q))
+    .sort((a,b) => a.nombre.localeCompare(b.nombre));
+
+  cont.innerHTML = `
+    <div class="section-head">
+      <h2>Pacientes</h2>
+      <span class="muted">${PACIENTES_DATA.filter(p=>p.activo!=='no').length} registrados</span>
+      <div class="spacer"></div>
+      ${puedeCrear ? `<button class="btn btn-primary" onclick="abrirNuevoPaciente()">+ Nuevo paciente</button>` : ''}
+    </div>
+    <input class="input-search" placeholder="Buscar por nombre o documento…" value="${escapeHtml(_pacFiltro)}" oninput="_pacFiltro=this.value;buildPacientes()" autofocus/>
+    <div class="plist">
+      ${lista.length ? lista.map(p => {
+        const rev = respondidosSinRevisar(p.cc);
+        return `<div class="prow" onclick="abrirPerfil('${p.cc}')">
+          <div class="pav">${iniciales(p.nombre)}</div>
+          <div style="flex:1;min-width:0">
+            <div class="nm">${escapeHtml(p.nombre)}</div>
+            <div class="meta">${p.tipoDoc} ${escapeHtml(p.cc)}${p.medicoTratante?` · ${escapeHtml(p.medicoTratante)}`:''}</div>
+          </div>
+          ${rev ? `<span class="badge badge-revisar">${rev} por revisar</span>` : ''}
+        </div>`;
+      }).join('') : `<div class="empty"><div class="ic">👥</div>${q?'Sin resultados para esa búsqueda':'Aún no hay pacientes registrados'}</div>`}
+    </div>`;
+}
+
+function abrirNuevoPaciente(){
+  _editandoCC = null;
+  document.getElementById('mp-titulo').textContent = 'Nuevo paciente';
+  document.getElementById('mp-tipodoc').value = 'CC';
+  ['mp-cc','mp-nombre','mp-nacimiento','mp-telefono','mp-email'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('mp-medico').value = '';
+  document.getElementById('mp-cc').disabled = false;
+  document.getElementById('modal-paciente').classList.add('open');
+}
+function editarPaciente(){
+  const p = PACIENTES_DATA.find(x => x.cc === _pfCC); if(!p) return;
+  _editandoCC = p.cc;
+  document.getElementById('mp-titulo').textContent = 'Editar paciente';
+  document.getElementById('mp-tipodoc').value = p.tipoDoc;
+  document.getElementById('mp-cc').value = p.cc; document.getElementById('mp-cc').disabled = true;
+  document.getElementById('mp-nombre').value = p.nombre;
+  document.getElementById('mp-nacimiento').value = p.fechaNacimiento;
+  document.getElementById('mp-telefono').value = p.telefono;
+  document.getElementById('mp-email').value = p.email;
+  document.getElementById('mp-medico').value = p.medicoTratante;
+  closeModal('modal-perfil');
+  document.getElementById('modal-paciente').classList.add('open');
+}
+async function guardarPaciente(){
+  if(_saving) return;
+  const cc = document.getElementById('mp-cc').value.trim();
+  const nombre = document.getElementById('mp-nombre').value.trim();
+  if(!cc || !nombre){ mostrarToast('⚠️ Faltan datos', 'Documento y nombre son obligatorios', 'amber'); return; }
+  if(!_editandoCC && PACIENTES_DATA.some(p => p.cc === cc)){ mostrarToast('⚠️ Documento duplicado', 'Ya existe un paciente con ese documento', 'amber'); return; }
+  const datos = {
+    cc, tipoDoc:document.getElementById('mp-tipodoc').value,
+    nombre, fechaNacimiento:document.getElementById('mp-nacimiento').value,
+    telefono:document.getElementById('mp-telefono').value.trim(),
+    email:document.getElementById('mp-email').value.trim(),
+    medicoTratante:document.getElementById('mp-medico').value,
+  };
+  _saving = true;
+  const btn = document.getElementById('mp-btn'); const prev = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳ Guardando…';
+  try{
+    if(_editandoCC){
+      const p = PACIENTES_DATA.find(x => x.cc === _editandoCC);
+      Object.assign(p, datos);
+    }else{
+      PACIENTES_DATA.push({ ...datos, fechaRegistro:hoy(), activo:'si' });
+    }
+    const ok = await gasWrite('Pacientes', pacientesToRows());
+    if(!ok) throw new Error('write falló');
+    await logAudit(_editandoCC?'Editar paciente':'Crear paciente', `${datos.tipoDoc} ${cc} · ${nombre}`);
+    closeModal('modal-paciente');
+    mostrarToast('✅ Paciente guardado', nombre, 'verde');
+    buildPacientes();
+  }catch(e){
+    mostrarToast('⚠️ Error al guardar', 'Intenta de nuevo', 'rojo'); console.error(e);
+  }finally{
+    _saving = false; btn.disabled = false; btn.textContent = prev;
+  }
+}
+
+/* ── Perfil unificado ── */
+function abrirPerfil(cc){
+  _pfCC = cc; _pfTab = 'formularios';
+  const p = PACIENTES_DATA.find(x => x.cc === cc); if(!p) return;
+  document.getElementById('pf-nombre').textContent = p.nombre;
+  document.getElementById('pf-sub').textContent = `${p.tipoDoc} ${p.cc}${p.telefono?` · ${p.telefono}`:''}${p.medicoTratante?` · ${p.medicoTratante}`:''}`;
+  ['formularios','score','plan'].forEach(t => document.getElementById('pftab-'+t).classList.toggle('active', t==='formularios'));
+  renderPerfil();
+  document.getElementById('modal-perfil').classList.add('open');
+}
+function cambiarTabPerfil(t){
+  _pfTab = t;
+  ['formularios','score','plan'].forEach(x => document.getElementById('pftab-'+x).classList.toggle('active', x===t));
+  renderPerfil();
+}
+function renderPerfil(){
+  const cont = document.getElementById('pf-contenido');
+  if(_pfTab === 'score'){ cont.innerHTML = `<div class="empty"><div class="ic">📊</div>Score clínico — próximamente</div>`; return; }
+  if(_pfTab === 'plan'){ cont.innerHTML = `<div class="empty"><div class="ic">📋</div>Plan terapéutico — próximamente</div>`; return; }
+  // Formularios
+  const puedeEnviar = PUEDE_ENVIAR.includes(currentUser.rol);
+  const tokens = tokensDePaciente(_pfCC).sort((a,b) => (b.fechaEnvio||'').localeCompare(a.fechaEnvio||''));
+  cont.innerHTML = `
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--color-natural-medio);margin-bottom:10px">Enviar un formulario</div>
+    ${FORMULARIOS_CATALOGO.map(f => `
+      <div class="form-card">
+        <div class="fic">${f.icon}</div>
+        <div style="flex:1;min-width:0">
+          <div class="nm">${escapeHtml(f.nombre)}</div>
+          <div class="meta">≈ ${f.tiempo}</div>
+        </div>
+        ${puedeEnviar ? `<button class="btn btn-primary" onclick="enviarFormulario('${f.id}')">📤 Enviar</button>` : ''}
+      </div>`).join('')}
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--color-natural-medio);margin:22px 0 10px">Historial de envíos</div>
+    ${tokens.length ? tokens.map(t => {
+      const badge = t.estado==='respondido' ? `<span class="badge badge-ok">✓ Respondido</span>` : `<span class="badge badge-pend">⏳ Pendiente</span>`;
+      return `<div class="form-card" style="background:var(--color-fondo-principal)">
+        <div style="flex:1;min-width:0"><div class="nm" style="font-size:13.5px">${escapeHtml(nombreForm(t.formId))}</div><div class="meta">Enviado ${formatFecha(t.fechaEnvio)}</div></div>
+        ${badge}
+        ${t.estado!=='respondido' ? `<button class="btn btn-ghost" style="padding:7px 12px;font-size:12px" onclick="reabrirLink('${t.token}','${t.formId}')">🔗 Link</button>` : ''}
+      </div>`;
+    }).join('') : `<div class="muted" style="padding:8px 2px">Sin envíos todavía.</div>`}`;
+}
+
+/* ── Envío de formulario → token + link ── */
+function buildLink(token){ return `${FORM_BASE}?token=${encodeURIComponent(token)}`; }
+async function enviarFormulario(formId){
+  if(_saving) return;
+  const p = PACIENTES_DATA.find(x => x.cc === _pfCC); if(!p) return;
+  const token = `${formId}-${p.cc}-${Date.now().toString(36)}`;
+  _saving = true;
+  try{
+    TOKENS_DATA.push({ token, cc:p.cc, formId, fechaEnvio:hoy(), estado:'pendiente' });
+    const ok = await gasWrite('Tokens', tokensToRows());
+    if(!ok) throw new Error('write falló');
+    await logAudit('Enviar formulario', `${p.tipoDoc} ${p.cc} · ${p.nombre} · ${nombreForm(formId)}`);
+    mostrarLink(token, formId, p);
+    renderPerfil();
+  }catch(e){
+    // revertir RAM si falló
+    const i = TOKENS_DATA.findIndex(t => t.token === token); if(i>=0) TOKENS_DATA.splice(i,1);
+    mostrarToast('⚠️ Error al generar el envío', 'Intenta de nuevo', 'rojo'); console.error(e);
+  }finally{ _saving = false; }
+}
+function mostrarLink(token, formId, p){
+  const link = buildLink(token);
+  document.getElementById('ml-info').textContent = `${nombreForm(formId)} · para ${p.nombre}`;
+  document.getElementById('ml-link').value = link;
+  const msg = encodeURIComponent(`Hola ${p.nombre}, por favor diligencia tu ${nombreForm(formId)} en este enlace: ${link}`);
+  const tel = (p.telefono||'').replace(/\D/g,'');
+  const wa = document.getElementById('ml-wa');
+  wa.onclick = () => window.open(`https://wa.me/${tel?('57'+tel):''}?text=${msg}`, '_blank');
+  document.getElementById('modal-link').classList.add('open');
+}
+function reabrirLink(token, formId){
+  const p = PACIENTES_DATA.find(x => x.cc === _pfCC); if(!p) return;
+  mostrarLink(token, formId, p);
+}
+function copiarLink(){
+  const inp = document.getElementById('ml-link'); inp.select();
+  navigator.clipboard?.writeText(inp.value).then(
+    () => mostrarToast('✅ Link copiado', '', 'verde'),
+    () => { document.execCommand('copy'); mostrarToast('✅ Link copiado', '', 'verde'); }
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   11. MÓDULO COMUNICACIÓN (enfermería + admin)
+═══════════════════════════════════════════════════════════ */
+function buildComunicacion(){
+  document.getElementById('page-comunicacion').innerHTML = `
+    <div class="section-head"><h2>Comunicación</h2></div>
+    <div class="card"><div class="empty"><div class="ic">💬</div>
+      Panel de comunicación de enfermería — próximamente.<br>
+      <span class="muted">Aquí se gestionarán mensajes y avisos del equipo asistencial.</span>
+    </div></div>`;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   12. MÓDULO MÉTRICAS (admin)
+═══════════════════════════════════════════════════════════ */
+let _chart = null;
+function buildMetricas(){
+  const enviados = TOKENS_DATA.length;
+  const respondidos = TOKENS_DATA.filter(t => t.estado==='respondido').length;
+  const pendientes = enviados - respondidos;
+  document.getElementById('page-metricas').innerHTML = `
+    <div class="section-head"><h2>Métricas</h2></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:20px">
+      ${[['Pacientes',PACIENTES_DATA.filter(p=>p.activo!=='no').length,'var(--acento-teal-medio)'],
+         ['Formularios enviados',enviados,'var(--acento-primario)'],
+         ['Respondidos',respondidos,'var(--color-natural-acento)'],
+         ['Pendientes',pendientes,'var(--acento-naranja)']]
+        .map(([l,v,c]) => `<div class="card" style="text-align:center"><div style="font-size:34px;font-weight:800;color:${c}">${v}</div><div class="muted" style="text-transform:uppercase;letter-spacing:.06em;font-size:11px;font-weight:700">${l}</div></div>`).join('')}
+    </div>
+    <div class="card"><div class="section-head"><h2>Envíos por estado</h2></div>
+      <div style="max-width:320px;margin:0 auto"><canvas id="m-chart"></canvas></div></div>`;
+  if(_chart){ _chart.destroy(); _chart = null; }
+  const ctx = document.getElementById('m-chart');
+  if(ctx && window.Chart){
+    _chart = new Chart(ctx, {
+      type:'doughnut',
+      data:{ labels:['Respondidos','Pendientes'], datasets:[{ data:[respondidos,pendientes], backgroundColor:['#007A60','#D4622A'], borderWidth:0 }] },
+      options:{ plugins:{ legend:{ position:'bottom', labels:{ font:{ family:'Montserrat' } } } }, cutout:'62%' }
+    });
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   13. BÚSQUEDA GLOBAL (Cmd+K)
+═══════════════════════════════════════════════════════════ */
+function abrirCmdK(){
+  if(!NAV_CONFIG[currentUser.id]?.includes('pacientes')){ mostrarToast('Sin acceso', 'Tu rol no gestiona pacientes', 'amber'); return; }
+  document.getElementById('cmdk').classList.add('open');
+  const inp = document.getElementById('cmdk-input'); inp.value = ''; _cmdkSel = 0;
+  filtrarCmdK(); setTimeout(() => inp.focus(), 50);
+}
+function filtrarCmdK(){
+  const q = document.getElementById('cmdk-input').value.trim().toLowerCase();
+  const lista = PACIENTES_DATA.filter(p => p.activo!=='no')
+    .filter(p => !q || p.nombre.toLowerCase().includes(q) || p.cc.includes(q)).slice(0, 8);
+  document.getElementById('cmdk-results').innerHTML = lista.length
+    ? lista.map(p => `<div class="cmdk-item" onclick="abrirPerfilDesdeCmdK('${p.cc}')">
+        <div class="pav" style="width:34px;height:34px;font-size:12px">${iniciales(p.nombre)}</div>
+        <div><div style="font-weight:700;color:var(--color-texto-base);font-size:14px">${escapeHtml(p.nombre)}</div><div class="meta">${p.tipoDoc} ${escapeHtml(p.cc)}</div></div>
+      </div>`).join('')
+    : `<div class="cmdk-item muted">${q?'Sin resultados':'Escribe para buscar…'}</div>`;
+}
+function abrirPerfilDesdeCmdK(cc){ closeModal('cmdk'); abrirPerfil(cc); }
+</script>
+</body>
+</html>
