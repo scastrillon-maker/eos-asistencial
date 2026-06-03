@@ -1361,7 +1361,7 @@ function marcarChip(){
 function renderResultado(){
   const esMAF = _resForm === 'MAF01';
   document.getElementById('maf-tabs').style.display = esMAF ? '' : 'none';
-  document.getElementById('maf-btn-hc').style.display = esMAF ? '' : 'none';
+  document.getElementById('maf-btn-hc').style.display = ''; // botón "Copiar para HC" en MAF y en todas las escalas
   if(esMAF){
     _mafTab = 'cat';
     document.getElementById('maf-tab-cat').classList.add('active');
@@ -1503,6 +1503,36 @@ function renderMAFEvolucion(mafs){
 }
 
 function copiarHC(){
+  if(_resForm === 'MAF01') return copiarHCMaf();
+  return copiarHCEscala(_resForm);
+}
+function copiarTexto(txt){
+  navigator.clipboard?.writeText(txt).then(
+    () => mostrarToast('✅ Copiado al portapapeles', 'Listo para pegar en la HC', 'verde'),
+    () => mostrarToast('⚠️ No se pudo copiar', 'Reintenta o copia manual', 'amber')
+  );
+}
+function copiarHCEscala(formId){
+  const cfg = ESCALAS[formId];
+  const p = PACIENTES_DATA.find(x => x.cc === _mafCC);
+  const resps = RESPUESTAS_DATA.filter(r => r.cc === _mafCC && r.formId === formId).sort((a,b) => (a.fechaRespuesta||'').localeCompare(b.fechaRespuesta||''));
+  const resp = resps[resps.length-1];
+  const r = resp.respuestas || {};
+  const res = puntuarEscala(formId, r);
+  let txt = `${cfg.nombre.toUpperCase()} — ${p?.nombre || ''} — ${formatFecha(resp.fechaRespuesta)}\n\n`;
+  txt += `RESULTADO: ${res.scoreLabel} — ${res.interpretacion}\n`;
+  if(res.alarma) txt += `\n⚠️ ${res.alarma}\n`;
+  txt += `\nRESPUESTAS:\n`;
+  cfg.preguntas.forEach(q => {
+    const v = r[q.id];
+    let et;
+    if(q.tipo === 'siNo') et = (v === 1 ? 'Sí' : v === 0 ? 'No' : '—');
+    else et = (q.etiquetas && q.etiquetas[v] != null) ? `${q.etiquetas[v]} (${v})` : (v != null ? v : '—');
+    txt += `• ${q.texto} — ${et}\n`;
+  });
+  copiarTexto(txt);
+}
+function copiarHCMaf(){
   const mafs = respuestasMAF(_mafCC);
   if(!mafs.length) return;
   const p = PACIENTES_DATA.find(x => x.cc === _mafCC);
@@ -1519,11 +1549,7 @@ function copiarHC(){
   const afect = tab.filter(c => c.significativas.length > 0).sort((a,b) => b.significativas.length - a.significativas.length);
   txt += `\nCATEGORÍAS MÁS AFECTADAS: ${afect.map(c => `Cat. ${c.categoria.numero} (${c.significativas.length})`).join(', ') || 'ninguna'}\n`;
   txt += `\nTotal síntomas significativos: ${idsSig.size} de ${idsTot.size} preguntas respondidas\n`;
-
-  navigator.clipboard?.writeText(txt).then(
-    () => mostrarToast('✅ Copiado al portapapeles', 'Listo para pegar en la HC', 'verde'),
-    () => mostrarToast('⚠️ No se pudo copiar', 'Reintenta o copia manual', 'amber')
-  );
+  copiarTexto(txt);
 }
 
 /* ═══════════════════════════════════════════════════════════
