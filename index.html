@@ -1101,15 +1101,15 @@ function buildPacientes(){
   const cont = document.getElementById('page-pacientes');
   const puedeCrear = PUEDE_ENVIAR.includes(currentUser.rol);
   const q = _pacFiltro.trim().toLowerCase();
-  const lista = PACIENTES_DATA
-    .filter(p => p.activo !== 'no')
+  const visibles = pacientesDelMedico(); // médico → solo los suyos + sus unidades; resto → todos
+  const lista = visibles
     .filter(p => !q || p.nombre.toLowerCase().includes(q) || p.cc.includes(q))
     .sort((a,b) => a.nombre.localeCompare(b.nombre));
 
   cont.innerHTML = `
     <div class="section-head">
       <h2>Pacientes</h2>
-      <span class="muted">${PACIENTES_DATA.filter(p=>p.activo!=='no').length} registrados</span>
+      <span class="muted">${visibles.length} registrados</span>
       <div class="spacer"></div>
       ${puedeCrear ? `<button class="btn btn-primary" onclick="abrirNuevoPaciente()">+ Nuevo paciente</button>` : ''}
     </div>
@@ -1134,7 +1134,9 @@ function abrirNuevoPaciente(){
   document.getElementById('mp-titulo').textContent = 'Nuevo paciente';
   document.getElementById('mp-tipodoc').value = 'CC';
   ['mp-cc','mp-nombre','mp-nacimiento','mp-telefono','mp-email'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('mp-medico').value = '';
+  // Auto-asignar al médico que crea (evita que "pierda" el paciente por el filtro de visibilidad)
+  const esMedico = currentUser.rol === 'Médico' || currentUser.rol === 'Médico Administrador';
+  document.getElementById('mp-medico').value = esMedico ? currentUser.nombre : '';
   document.getElementById('mp-cc').disabled = false;
   document.getElementById('modal-paciente').classList.add('open');
 }
@@ -1602,7 +1604,7 @@ function abrirCmdK(){
 }
 function filtrarCmdK(){
   const q = document.getElementById('cmdk-input').value.trim().toLowerCase();
-  const lista = PACIENTES_DATA.filter(p => p.activo!=='no')
+  const lista = pacientesDelMedico()
     .filter(p => !q || p.nombre.toLowerCase().includes(q) || p.cc.includes(q)).slice(0, 8);
   document.getElementById('cmdk-results').innerHTML = lista.length
     ? lista.map(p => `<div class="cmdk-item" onclick="abrirPerfilDesdeCmdK('${p.cc}')">
