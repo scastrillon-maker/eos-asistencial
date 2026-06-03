@@ -231,10 +231,43 @@ input,select,textarea{font-family:inherit;font-size:15px}
 .cmdk-item{padding:13px 22px;cursor:pointer;border-top:1px solid var(--color-arena);display:flex;gap:12px;align-items:center}
 .cmdk-item:hover,.cmdk-item.sel{background:var(--color-fondo-secundario)}
 
+/* ── Vista MAF del médico ── */
+.badge-implicada{background:#fdecec;color:#EF4444}
+.maf-resumen{background:var(--color-fondo-principal);border:1.5px solid var(--color-arena);border-radius:var(--radio);padding:14px 16px;margin-bottom:16px}
+.maf-resumen-tot{font-size:14px;color:var(--color-texto-base);margin-bottom:8px}
+.maf-resumen-tot strong{font-size:22px;color:var(--acento-holistico)}
+.maf-resumen-chips{display:flex;flex-wrap:wrap;gap:6px}
+.maf-cat{background:#fff;border:1.5px solid var(--color-arena);border-radius:var(--radio);padding:14px 16px;margin-bottom:12px}
+.maf-cat-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--color-arena)}
+.maf-cat-num{font-weight:800;font-size:14px;text-transform:uppercase;letter-spacing:.04em;color:var(--color-texto-base)}
+.maf-cat-sub{margin-left:auto;font-size:11.5px;color:var(--color-natural-medio);font-weight:600}
+.maf-fila{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 10px;border-radius:8px;font-size:13px;margin-bottom:3px}
+.maf-fila > span:first-child{color:var(--color-estructura-gris)}
+.maf-val{flex-shrink:0;font-weight:700;font-size:12px;padding:2px 9px;border-radius:20px;white-space:nowrap}
+.maf-fila.val-0 .maf-val,.maf-fila.val-1 .maf-val{background:var(--color-fondo-secundario);color:var(--color-natural-medio)}
+.maf-fila.val-2{background:#fff7e6}.maf-fila.val-2 .maf-val{background:#F59E0B;color:#fff}
+.maf-fila.val-3{background:#fdecec}.maf-fila.val-3 .maf-val{background:#EF4444;color:#fff}
+.maf-fila.val-si{background:#f3e6fb}.maf-fila.val-si .maf-val{background:var(--acento-holistico);color:#fff}
+.maf-afectadas{margin-top:16px;background:#fff;border:1.5px solid var(--color-arena);border-radius:var(--radio);padding:14px 16px}
+.maf-afectadas-h{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--color-texto-base);margin-bottom:10px}
+.maf-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:7px}
+.maf-bar-lbl{flex:0 0 100px;font-size:12px;font-weight:600;color:var(--color-estructura-gris)}
+.maf-bar-track{flex:1;height:14px;background:var(--color-fondo-secundario);border-radius:10px;overflow:hidden}
+.maf-bar-fill{display:block;height:100%;background:var(--acento-teal-medio);border-radius:10px}
+.maf-bar-num{flex:0 0 30px;text-align:right;font-weight:800;font-size:13px;color:var(--color-texto-base)}
+.evo-tabla-wrap{overflow-x:auto}
+.evo-tabla{width:100%;border-collapse:collapse;font-size:12.5px}
+.evo-tabla th,.evo-tabla td{border:1px solid var(--color-arena);padding:7px 10px;text-align:center}
+.evo-tabla th{background:var(--color-fondo-secundario);font-weight:700;text-transform:uppercase;font-size:10.5px;letter-spacing:.04em}
+.evo-tabla td.evo-q{text-align:left;color:var(--color-estructura-gris);min-width:240px}
+.evo-tabla td.evo-up{background:#fdecec;color:#EF4444;font-weight:800}
+.evo-tabla td.evo-down{background:#e0f5ee;color:var(--color-natural-acento);font-weight:800}
+
 @media(max-width:760px){
   .sidebar{position:fixed;left:-260px;z-index:200;transition:left .2s} .sidebar.open{left:0}
   .form-grid{grid-template-columns:1fr}
   .search-trigger{min-width:0}
+  .met-grid{grid-template-columns:1fr!important}
 }
 </style>
 </head>
@@ -288,7 +321,7 @@ input,select,textarea{font-family:inherit;font-size:15px}
       </header>
       <div class="content">
         <div class="page" id="page-pacientes"></div>
-        <div class="page" id="page-comunicacion"></div>
+        <div class="page" id="page-formularios"></div>
         <div class="page" id="page-metricas"></div>
       </div>
     </div>
@@ -364,6 +397,28 @@ input,select,textarea{font-family:inherit;font-size:15px}
   </div>
 </div>
 
+<!-- ══════════ MODAL: MAF (vista médico/admin) ══════════ -->
+<div class="modal-overlay" id="modal-maf">
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <h3 id="maf-nombre">MAF</h3>
+      <button class="modal-close" onclick="closeModal('modal-maf')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="muted" id="maf-sub" style="margin-bottom:14px"></div>
+      <div class="tabs">
+        <div class="tab active" id="maf-tab-cat" onclick="cambiarTabMAF('cat')">Resultados por categoría</div>
+        <div class="tab" id="maf-tab-evo" onclick="cambiarTabMAF('evo')" style="display:none">Evolución</div>
+      </div>
+      <div id="maf-content"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" id="maf-btn-hc" onclick="copiarHC()">📋 Copiar para Historia Clínica</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-maf')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Búsqueda global -->
 <div id="cmdk"><div class="cmdk-box">
   <input type="text" id="cmdk-input" placeholder="Buscar paciente por nombre o documento…" oninput="filtrarCmdK()"/>
@@ -383,30 +438,61 @@ const GAS_URL   = 'https://script.google.com/macros/s/AKfycbyYxHSd5kzXtumun72Ptr
 const FORM_BASE = 'https://scastrillon-maker.github.io/eos-asistencial/formulario.html';
 
 const USUARIOS = {
-  med1:   { nombre: 'Dr. Sebastian Castrillon',  rol: 'Médico',         color:'#0A3D6B', pass: '1234' },
-  med2:   { nombre: 'Dra. Angelica Bermudez',    rol: 'Médico',         color:'#0A3D6B', pass: '1234' },
-  enf1:   { nombre: 'Enf. Alejandra López',      rol: 'Enfermera',      color:'#0D4D45', pass: '1234' },
-  recep1: { nombre: 'Recep. Natalia Giraldo',    rol: 'Recepcionista',  color:'#6B7055', pass: '1234' },
-  admin:  { nombre: 'Aux. Luisa Fernanda López', rol: 'Administradora', color:'#4B2E9A', pass: '1234' },
+  med1:   { nombre: 'Dr. Sebastian Castrillon Restrepo',     rol: 'Médico Administrador', color:'#4B2E9A', pass: '1234' },
+  med2:   { nombre: 'Dra. Angelica Bermudez Ocampo',         rol: 'Médico',               color:'#0A3D6B', pass: '1234' },
+  med3:   { nombre: 'Dra. Manuela Zea Alzate',               rol: 'Médico',               color:'#0A3D6B', pass: '1234' },
+  med4:   { nombre: 'Dra. Diana Carolina Ramirez Cadavid',   rol: 'Médico',               color:'#0A3D6B', pass: '1234' },
+  med5:   { nombre: 'Dra. Rossana Zapata Melo',              rol: 'Médico',               color:'#0A3D6B', pass: '1234' },
+  med6:   { nombre: 'Dra. Maria de la Paz Mejia Triana',     rol: 'Médico',               color:'#3A8FA0', pass: '1234' },
+  med7:   { nombre: 'Dra. Cindy Marcela Ardila Perez',       rol: 'Médico',               color:'#0A3D6B', pass: '1234' },
+  med8:   { nombre: 'Dra. Maria Isabel Villegas Sierra',     rol: 'Médico',               color:'#3A8FA0', pass: '1234' },
+  nut1:   { nombre: 'Nut. Leidy Tatiana Barrientos Sanchez', rol: 'Nutricionista',        color:'#007A60', pass: '1234' },
+  recep1: { nombre: 'Recep. Natalia Giraldo',               rol: 'Recepcionista',        color:'#6B7055', pass: '1234' },
+  recep2: { nombre: 'Recep. Jeferson Vasquez',              rol: 'Recepcionista',        color:'#6B7055', pass: '1234' },
+  psi1:   { nombre: 'Psic. Catalina Mesa Arango',           rol: 'Psicólogo',            color:'#9B4EBF', pass: '1234' },
 };
 
-const MEDICOS = ['Dr. Sebastian Castrillon','Dra. Angelica Bermudez'];
+// Médicos individuales (orden = med1..med8) para el menú de "profesional tratante"
+const MEDICOS = [
+  'Dr. Sebastian Castrillon Restrepo','Dra. Angelica Bermudez Ocampo','Dra. Manuela Zea Alzate',
+  'Dra. Diana Carolina Ramirez Cadavid','Dra. Rossana Zapata Melo','Dra. Maria de la Paz Mejia Triana',
+  'Dra. Cindy Marcela Ardila Perez','Dra. Maria Isabel Villegas Sierra',
+];
+// Unidades funcionales — un paciente clasificado en una unidad es visible para TODOS sus médicos.
+// La asignación es excluyente: un paciente se asigna a un médico O a una unidad.
+const UNIDADES = [
+  { nombre:'Unidad Funcional de Metabolismo',    miembros:['med1','med2','med3','med7'] },
+  { nombre:'Unidad Funcional de Salud Hormonal', miembros:['med6','med8'] },
+];
+// Opciones del selector "profesional tratante" (médicos + unidades)
+function opcionesTratante(selected){
+  const med = MEDICOS.map(m => `<option ${selected===m?'selected':''}>${m}</option>`).join('');
+  const uni = UNIDADES.map(u => `<option ${selected===u.nombre?'selected':''}>${u.nombre}</option>`).join('');
+  return `<option value="">— Sin asignar —</option><optgroup label="Médicos">${med}</optgroup><optgroup label="Unidades funcionales">${uni}</optgroup>`;
+}
 
 // 3 destinos del sidebar
 const NAV_CONFIG = {
-  med1:   ['pacientes'],
-  med2:   ['pacientes'],
-  enf1:   ['comunicacion','pacientes'],
+  med1:   ['pacientes','formularios','metricas'], // Médico Administrador
+  med2:   ['pacientes','formularios'],
+  med3:   ['pacientes','formularios'],
+  med4:   ['pacientes','formularios'],
+  med5:   ['pacientes','formularios'],
+  med6:   ['pacientes','formularios'],
+  med7:   ['pacientes','formularios'],
+  med8:   ['pacientes','formularios'],
+  nut1:   ['pacientes','formularios'],
   recep1: ['pacientes'],
-  admin:  ['pacientes','comunicacion','metricas'],
+  recep2: ['pacientes'],
+  psi1:   ['pacientes','formularios'],
 };
 const NAV_META = {
   pacientes:    { label:'Pacientes',     icon:'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 7a4 4 0 1 0 0 8 4 4 0 0 0 0-8 M23 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75' },
-  comunicacion: { label:'Comunicación',  icon:'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z' },
+  formularios:  { label:'Formularios',   icon:'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M9 13h6 M9 17h4' },
   metricas:     { label:'Métricas',      icon:'M18 20V10 M12 20V4 M6 20v-6' },
 };
-// Quién puede enviar formularios
-const PUEDE_ENVIAR = ['Médico','Recepcionista','Administradora'];
+// Quién puede crear pacientes y enviar formularios (todos los roles activos de esta app)
+const PUEDE_ENVIAR = ['Médico Administrador','Médico','Nutricionista','Psicólogo','Recepcionista'];
 
 // Catálogo de formularios (la definición completa vive en formulario.html)
 const FORMULARIOS_CATALOGO = [
@@ -416,6 +502,220 @@ const FORMULARIOS_CATALOGO = [
   { id:'YFAS01', nombre:'Escala de Adicción a la Comida (mYFAS)',  tiempo:'5–7 min',   icon:'🍔' },
   { id:'EEQ01',  nombre:'Alimentación Emocional (EEQ)',            tiempo:'3–5 min',   icon:'💗' },
 ];
+
+/* ═══════════════════════════════════════════════════════════
+   DATOS MAF — para el módulo de visualización del médico.
+   Las categorías se asignan por rango (id contiguo) + las
+   preguntas multi-categoría. Una pregunta repetida cuenta y
+   se muestra en CADA categoría a la que pertenece.
+═══════════════════════════════════════════════════════════ */
+const MAF_CATEGORIAS = [
+  {id:'cat1',numero:1},{id:'cat2',numero:2},{id:'cat3',numero:3},{id:'cat4',numero:4},
+  {id:'cat5',numero:5},{id:'cat6',numero:6},{id:'cat7',numero:7},{id:'cat8',numero:8},
+  {id:'cat9',numero:9},{id:'cat10',numero:10},{id:'cat11',numero:11},{id:'cat12',numero:12},
+  {id:'cat13',numero:13},{id:'cat14',numero:14},{id:'cat15',numero:15},{id:'cat16',numero:16},
+  {id:'cat17',numero:17,soloHombres:true},{id:'cat18',numero:18,soloHombres:true},
+  {id:'cat19',numero:19,soloMujeresMenstruando:true},{id:'cat20',numero:20,soloMujeresMenopausia:true},
+];
+const MAF_PREGUNTAS = [
+  {id:'p001',texto:'Siente que sus intestinos no se vacían completamente'},
+  {id:'p002',texto:'Dolor abdominal que mejora cuando pasa gases o va al baño'},
+  {id:'p003',texto:'Diarrea y estreñimiento alternantes'},
+  {id:'p004',texto:'Diarrea'},
+  {id:'p005',texto:'Estreñimiento'},
+  {id:'p006',texto:'Heces duras, secas o pequeñas'},
+  {id:'p007',texto:'Lengua con capa blanquecina o de aspecto sucio'},
+  {id:'p008',texto:'Muchos gases fétidos'},
+  {id:'p009',texto:'Más de 3 deposiciones al día'},
+  {id:'p010',texto:'Usa laxantes con frecuencia'},
+  {id:'p011',texto:'Aumento de la frecuencia de reacción a los alimentos'},
+  {id:'p012',texto:'Reacciones impredecibles a los alimentos'},
+  {id:'p013',texto:'Dolor o hinchazón por todo el cuerpo'},
+  {id:'p014',texto:'Se le inflama el abdomen de manera impredecible'},
+  {id:'p015',texto:'Se le infla el estómago después de comer'},
+  {id:'p016',texto:'Intolerancia a olores'},
+  {id:'p017',texto:'Intolerancia a joyas'},
+  {id:'p018',texto:'Intolerancia al champú, loción, jabones, etc.'},
+  {id:'p019',texto:'Múltiples sensibilidades a olores y químicos'},
+  {id:'p020',texto:'Brotes frecuentes en la piel'},
+  {id:'p021',texto:'Se le infla el abdomen con frecuencia'},
+  {id:'p022',texto:'Muchos eructos'},
+  {id:'p023',texto:'Gases inmediatamente después de comer'},
+  {id:'p024',texto:'Mal aliento'},
+  {id:'p025',texto:'Sensación de que los intestinos no se mueven bien'},
+  {id:'p026',texto:'Sensación de llenura durante y después de las comidas'},
+  {id:'p027',texto:'Dificultad para digerir proteínas y carnes'},
+  {id:'p028',texto:'Comida sin digerir en las heces'},
+  {id:'p029',texto:'Dolor/ardor estomacal 1-4 horas después de comer'},
+  {id:'p030',texto:'Usa antiácidos'},
+  {id:'p031',texto:'Se siente hambriento una o dos horas después de comer'},
+  {id:'p032',texto:'Agriera al acostarse'},
+  {id:'p033',texto:'Alivio temporal después de usar antiácidos, comer o tomar leche'},
+  {id:'p034',texto:'Los problemas digestivos mejoran con el descanso'},
+  {id:'p035',texto:'Agriera cuando consume comida picante o condimentada, chocolate, alcohol o café'},
+  {id:'p036',texto:'Le cuesta digerir comida con mucha fibra (vegetales)'},
+  {id:'p037',texto:'Indigestión y sensación de llenura por varias horas'},
+  {id:'p038',texto:'Sensibilidad o dolor debajo de las costillas izquierdas'},
+  {id:'p039',texto:'Muchos gases intestinales'},
+  {id:'p040',texto:'Náusea y/o vómito'},
+  {id:'p041',texto:'Heces con alimentos sin digerir, fétidas, con moco o grasa, malformadas'},
+  {id:'p042',texto:'Pérdida frecuente del apetito'},
+  {id:'p043',texto:'Se le infla el estómago después de comer fibra, almidones (granos, papas, yuca) o azúcar'},
+  {id:'p044',texto:'Se le infla el estómago después de comer fermentados o suplementos naturales'},
+  {id:'p045',texto:'Sus intestinos se mueven poco, estreñimiento'},
+  {id:'p046',texto:'Sus intestinos se mueven mucho, diarrea'},
+  {id:'p047',texto:'A veces tiene estreñimiento y a veces diarrea'},
+  {id:'p048',texto:'Sospecha que absorbe mal nutrientes'},
+  {id:'p049',texto:'Usa antiácidos con frecuencia'},
+  {id:'p050',texto:'¿Le han diagnosticado enfermedad celíaca, síndrome de intestino irritable, diverticulosis/diverticulitis, o intestino permeable?',esSiNo:true},
+  {id:'p051',texto:'Le cae mal la comida grasosa'},
+  {id:'p052',texto:'Se le infla el estómago y tiene gases varias horas después de comer'},
+  {id:'p053',texto:'Sabor metálico en la boca, especialmente en la mañana'},
+  {id:'p054',texto:'Tomar aceite de pescado le produce eructos'},
+  {id:'p055',texto:'Le pica la piel sin causa aparente'},
+  {id:'p056',texto:'Ojos amarillentos'},
+  {id:'p057',texto:'El color de las heces alterna entre color arcilla (amarilloso) y color normal'},
+  {id:'p058',texto:'Piel enrojecida especialmente las palmas'},
+  {id:'p059',texto:'Pelo seco o frágil'},
+  {id:'p060',texto:'Ha tenido cálculos en la vesícula',esSiNo:true},
+  {id:'p061',texto:'¿Le han sacado la vesícula?',esSiNo:true},
+  {id:'p062',texto:'La piel no es sana o tiene acné'},
+  {id:'p063',texto:'Se le cae excesivamente el cabello'},
+  {id:'p064',texto:'En general se siente hinchado'},
+  {id:'p065',texto:'Hinchazón de todo el cuerpo en general'},
+  {id:'p066',texto:'Cree que tiene imbalances hormonales'},
+  {id:'p067',texto:'Ganancia de peso en los últimos meses o semanas'},
+  {id:'p068',texto:'Sus intestinos no funcionan bien'},
+  {id:'p069',texto:'La sudoración es abundante y huele muy mal'},
+  {id:'p070',texto:'Necesita comer dulces durante el día'},
+  {id:'p071',texto:'Se pone irritable si se salta alguna comida'},
+  {id:'p072',texto:'Necesita tomar café para mantenerse con energía'},
+  {id:'p073',texto:'Se marea si se salta alguna comida'},
+  {id:'p074',texto:'Comer le alivia la baja energía'},
+  {id:'p075',texto:'Con frecuencia se siente nervioso o tembloroso'},
+  {id:'p076',texto:'Con frecuencia se pone mal genio, nervioso, agitado'},
+  {id:'p077',texto:'Su memoria empeora lejos de las comidas'},
+  {id:'p078',texto:'Visión borrosa'},
+  {id:'p079',texto:'Fatiga o sueño después de las comidas'},
+  {id:'p080',texto:'Comer dulces no le quita las ganas de comer más dulces'},
+  {id:'p081',texto:'Le hace falta un dulce después de las comidas'},
+  {id:'p082',texto:'La circunferencia del abdomen es mayor que las caderas'},
+  {id:'p083',texto:'Orina con frecuencia'},
+  {id:'p084',texto:'Aumento de la sed y del hambre'},
+  {id:'p085',texto:'Tiene dificultades para perder peso'},
+  {id:'p086',texto:'Le cuesta permanecer dormido'},
+  {id:'p087',texto:'Le cuesta activarse en las mañanas'},
+  {id:'p088',texto:'Se siente cansado en las tardes'},
+  {id:'p089',texto:'Se marea cuando se pone de pie rápidamente'},
+  {id:'p090',texto:'Dolor de cabeza en las tardes'},
+  {id:'p091',texto:'Dolor de cabeza cuando hace ejercicio'},
+  {id:'p092',texto:'Uñas débiles'},
+  {id:'p093',texto:'No se duerme fácilmente'},
+  {id:'p094',texto:'Suda con mucha facilidad'},
+  {id:'p095',texto:'Está bajo una gran cantidad de estrés'},
+  {id:'p096',texto:'Gana peso cuando está bajo estrés'},
+  {id:'p097',texto:'Se levanta cansado aunque duerma más de 6 horas'},
+  {id:'p098',texto:'Suda mucho aún con poco ejercicio'},
+  {id:'p099',texto:'Edema e hinchazón en tobillos y muñecas'},
+  {id:'p100',texto:'Tiene calambres musculares con frecuencia'},
+  {id:'p101',texto:'Sus músculos se fatigan rápidamente'},
+  {id:'p102',texto:'Tiene sed con frecuencia'},
+  {id:'p103',texto:'Siente que le hace falta sal con frecuencia'},
+  {id:'p104',texto:'Suda mucho incluso con actividad mínima'},
+  {id:'p105',texto:'Sus movimientos intestinales son irregulares'},
+  {id:'p106',texto:'No es capaz de sostener la respiración porque le da tos'},
+  {id:'p107',texto:'Respiración rápida y superficial'},
+  {id:'p108',texto:'Se siente lento y cansado'},
+  {id:'p109',texto:'Siente las manos y los pies fríos con frecuencia'},
+  {id:'p110',texto:'Necesita dormir muchas horas para funcionar bien'},
+  {id:'p111',texto:'Está ganando peso aunque coma pocas calorías'},
+  {id:'p112',texto:'Gana peso fácilmente'},
+  {id:'p113',texto:'Se siente deprimido, le falta motivación'},
+  {id:'p114',texto:'Dolor de cabeza en las mañanas que luego disminuye'},
+  {id:'p115',texto:'Adelgazamiento de las cejas en la parte lateral'},
+  {id:'p116',texto:'Adelgazamiento del pelo en la cabeza, la cara, los genitales o se le cae excesivamente'},
+  {id:'p117',texto:'Piel seca'},
+  {id:'p118',texto:'Mente lenta'},
+  {id:'p119',texto:'Palpitaciones'},
+  {id:'p120',texto:'Suspiros frecuentes'},
+  {id:'p121',texto:'Frecuencia cardíaca alta incluso en reposo'},
+  {id:'p122',texto:'Nervioso o emocional'},
+  {id:'p123',texto:'Insomnio'},
+  {id:'p124',texto:'Suda mucho en las noches'},
+  {id:'p125',texto:'Le cuesta aumentar de peso'},
+  {id:'p126',texto:'Siente que le hace falta sal'},
+  {id:'p127',texto:'Dificultad para orinar u orina con goteo'},
+  {id:'p128',texto:'Necesidad de orinar con frecuencia'},
+  {id:'p129',texto:'Dolor por dentro de las piernas o en los talones'},
+  {id:'p130',texto:'Siente que no defeca completamente'},
+  {id:'p131',texto:'Le saltan o le brincan las piernas en la noche'},
+  {id:'p132',texto:'Disminución del deseo sexual'},
+  {id:'p133',texto:'Tiene menos erecciones en las mañanas'},
+  {id:'p134',texto:'Las erecciones no son completas'},
+  {id:'p135',texto:'Le cuesta mantener las erecciones de la mañana'},
+  {id:'p136',texto:'Fatiga mental'},
+  {id:'p137',texto:'Le cuesta concentrarse'},
+  {id:'p138',texto:'Depresión'},
+  {id:'p139',texto:'Ardor o dolor en los músculos'},
+  {id:'p140',texto:'Disminución de la fuerza'},
+  {id:'p141',texto:'Ganancia de peso sin causa'},
+  {id:'p142',texto:'Tiene más grasa alrededor del pecho y las caderas'},
+  {id:'p143',texto:'Episodios de sudoración'},
+  {id:'p144',texto:'Se siente más emocional que en el pasado'},
+  {id:'p145',texto:'Está alrededor de la menopausia'},
+  {id:'p146',texto:'Los ciclos menstruales son de diferentes duraciones'},
+  {id:'p147',texto:'Tiene ciclos menstruales largos (más de 32 días)'},
+  {id:'p148',texto:'Tiene ciclos menstruales cortos (menos de 24 días)'},
+  {id:'p149',texto:'Dolor abdominal bajo con las menstruaciones'},
+  {id:'p150',texto:'Menstruaciones escasas'},
+  {id:'p151',texto:'Menstruaciones muy abundantes'},
+  {id:'p152',texto:'Dolor en las mamas durante la menstruación'},
+  {id:'p153',texto:'Dolor en la pelvis durante la menstruación'},
+  {id:'p154',texto:'Irritable o deprimida durante la menstruación'},
+  {id:'p155',texto:'Acné'},
+  {id:'p156',texto:'Tiene crecimiento de vello en la cara'},
+  {id:'p157',texto:'Pérdida de pelo o adelgazamiento'},
+  {id:'p158',texto:'Olas de calor'},
+  {id:'p159',texto:'Siente la mente como nublada'},
+  {id:'p160',texto:'Pérdida de interés en el sexo'},
+  {id:'p161',texto:'Tiene altibajos en el estado de ánimo'},
+  {id:'p162',texto:'Depresión'},
+  {id:'p163',texto:'Las relaciones sexuales son dolorosas'},
+  {id:'p164',texto:'Las mamas se han encogido'},
+  {id:'p165',texto:'Crecimiento de vello facial'},
+  {id:'p166',texto:'Acné'},
+  {id:'p167',texto:'Dolor vaginal, sequedad o picazón'},
+];
+// Asignar categorías por rango contiguo + multi-categoría (preguntas repetidas)
+(function(){
+  const R = [['cat1',1,10],['cat2',11,15],['cat3',16,20],['cat4',21,28],['cat5',29,35],['cat6',36,42],['cat7',43,50],['cat8',51,61],['cat9',62,69],['cat10',70,78],['cat11',79,85],['cat12',86,92],['cat13',93,98],['cat14',99,107],['cat15',108,118],['cat16',119,126],['cat17',127,131],['cat18',132,144],['cat19',145,157],['cat20',158,167]];
+  const EX = {p001:['cat4'],p005:['cat15'],p015:['cat4'],p026:['cat5'],p028:['cat6'],p070:['cat11'],p083:['cat14'],p103:['cat12']};
+  MAF_PREGUNTAS.forEach(p => {
+    const n = parseInt(p.id.slice(1), 10);
+    const base = R.find(r => n >= r[1] && n <= r[2]);
+    p.categorias = (base ? [base[0]] : []).concat(EX[p.id] || []);
+  });
+})();
+const MAF_VALOR_LABEL = ['Nunca','Pocas veces','Frecuente','Siempre'];
+
+// Tabula un objeto de respuestas { p001:2, ... } por categoría, filtrando por sexo
+function aplicaSexoCat(cat, resp){
+  if(cat.soloHombres) return resp.sexo === 'Hombre';
+  if(cat.soloMujeresMenstruando) return resp.sexo === 'Mujer' && resp.estadoFem === 'Menstruando';
+  if(cat.soloMujeresMenopausia) return resp.sexo === 'Mujer' && resp.estadoFem === 'Menopausia';
+  return true;
+}
+function tabularMAF(respuestas){
+  return MAF_CATEGORIAS
+    .filter(cat => aplicaSexoCat(cat, respuestas))
+    .map(cat => {
+      const preguntasCat  = MAF_PREGUNTAS.filter(p => p.categorias.includes(cat.id));
+      const conRespuesta  = preguntasCat.map(p => ({ ...p, valor: respuestas[p.id] ?? 0 }));
+      const significativas = conRespuesta.filter(p => p.valor >= 2);
+      return { categoria: cat, preguntas: conRespuesta, significativas, muyImplicada: significativas.length >= 3 };
+    })
+    .filter(cat => cat.preguntas.length > 0);
+}
 
 /* ═══════════════════════════════════════════════════════════
    2. ESTADO GLOBAL
@@ -534,7 +834,7 @@ function iniciarSyncAuto(){
   _syncTimer = setInterval(() => { if(!document.hidden && !_saving){ _autoSync = true; cargarDesdeSheets(); } }, 120000);
 }
 function refrescarVista(){
-  const b = { pacientes:buildPacientes, comunicacion:buildComunicacion, metricas:buildMetricas }[currentPage];
+  const b = { pacientes:buildPacientes, formularios:buildFormularios, metricas:buildMetricas }[currentPage];
   if(b) b();
   if(document.getElementById('modal-perfil').classList.contains('open') && _pfCC) renderPerfil();
 }
@@ -610,14 +910,14 @@ function setupShell(){
   document.getElementById('sb-role').textContent = u.rol;
   document.getElementById('topbar-date').textContent = fechaLarga();
   // Médico tratante por defecto en modal paciente
-  document.getElementById('mp-medico').innerHTML = '<option value="">— Sin asignar —</option>' + MEDICOS.map(m => `<option>${m}</option>`).join('');
+  document.getElementById('mp-medico').innerHTML = opcionesTratante('');
   buildNav();
   navigateTo((NAV_CONFIG[u.id]||['pacientes'])[0]);
 }
 function buildNav(){
   const permitidas = NAV_CONFIG[currentUser.id] || [];
   let html = '';
-  ['pacientes','comunicacion','metricas'].forEach(p => {
+  ['pacientes','formularios','metricas'].forEach(p => {
     if(!permitidas.includes(p)) return;
     const m = NAV_META[p];
     html += `<div class="nav-item" id="nav-${p}" onclick="navigateTo('${p}')"><svg viewBox="0 0 24 24"><path d="${m.icon}"/></svg>${m.label}</div>`;
@@ -632,7 +932,7 @@ function navigateTo(pagina){
   document.getElementById(`page-${pagina}`)?.classList.add('active');
   document.getElementById(`nav-${pagina}`)?.classList.add('active');
   document.getElementById('topbar-title').textContent = NAV_META[pagina]?.label || pagina;
-  ({ pacientes:buildPacientes, comunicacion:buildComunicacion, metricas:buildMetricas }[pagina] || (()=>{}))();
+  ({ pacientes:buildPacientes, formularios:buildFormularios, metricas:buildMetricas }[pagina] || (()=>{}))();
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -679,7 +979,7 @@ function respondidosSinRevisar(cc){ return TOKENS_DATA.filter(t => t.cc===cc && 
 ═══════════════════════════════════════════════════════════ */
 function buildPacientes(){
   const cont = document.getElementById('page-pacientes');
-  const puedeCrear = ['Recepcionista','Administradora','Médico'].includes(currentUser.rol);
+  const puedeCrear = PUEDE_ENVIAR.includes(currentUser.rol);
   const q = _pacFiltro.trim().toLowerCase();
   const lista = PACIENTES_DATA
     .filter(p => p.activo !== 'no')
@@ -855,45 +1155,269 @@ function copiarLink(){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   11. MÓDULO COMUNICACIÓN (enfermería + admin)
+   11. MÓDULO FORMULARIOS — Vista del médico (médico + admin)
 ═══════════════════════════════════════════════════════════ */
-function buildComunicacion(){
-  document.getElementById('page-comunicacion').innerHTML = `
-    <div class="section-head"><h2>Comunicación</h2></div>
-    <div class="card"><div class="empty"><div class="ic">💬</div>
-      Panel de comunicación de enfermería — próximamente.<br>
-      <span class="muted">Aquí se gestionarán mensajes y avisos del equipo asistencial.</span>
-    </div></div>`;
+let _formFiltro = '', _mafCC = null, _mafTab = 'cat', _mafEvoChart = null;
+
+function pacientesDelMedico(){
+  const activos = PACIENTES_DATA.filter(p => p.activo !== 'no');
+  // Médico individual: ve los suyos + los de las unidades funcionales a las que pertenece.
+  if(currentUser.rol === 'Médico'){
+    const misUnidades = UNIDADES.filter(u => u.miembros.includes(currentUser.id)).map(u => u.nombre);
+    return activos.filter(p => p.medicoTratante === currentUser.nombre || misUnidades.includes(p.medicoTratante));
+  }
+  // Médico Administrador, Nutricionista, Psicólogo → ven todos (transversal).
+  return activos;
+}
+function respuestasMAF(cc){
+  return RESPUESTAS_DATA.filter(r => r.cc === cc && r.formId === 'MAF01')
+    .sort((a,b) => (a.fechaRespuesta||'').localeCompare(b.fechaRespuesta||''));
+}
+
+function buildFormularios(){
+  const cont = document.getElementById('page-formularios');
+  const q = _formFiltro.trim().toLowerCase();
+  const lista = pacientesDelMedico()
+    .filter(p => !q || p.nombre.toLowerCase().includes(q) || p.cc.includes(q))
+    .map(p => {
+      const resp = RESPUESTAS_DATA.filter(r => r.cc === p.cc);
+      const ult  = resp.map(r => r.fechaRespuesta).sort().slice(-1)[0] || '';
+      return { ...p, _resp: resp.length, _ult: ult };
+    })
+    .sort((a,b) => (b._resp - a._resp) || a.nombre.localeCompare(b.nombre));
+
+  cont.innerHTML = `
+    <div class="section-head">
+      <h2>Formularios</h2>
+      <span class="muted">${currentUser.rol === 'Médico' ? 'Tus pacientes' : 'Todos los pacientes'}</span>
+    </div>
+    <input class="input-search" placeholder="Buscar por nombre o documento…" value="${escapeHtml(_formFiltro)}" oninput="_formFiltro=this.value;buildFormularios()"/>
+    <div class="plist">
+      ${lista.length ? lista.map(p => `
+        <div class="prow" onclick="openMAF('${p.cc}')">
+          <div class="pav">${iniciales(p.nombre)}</div>
+          <div style="flex:1;min-width:0">
+            <div class="nm">${escapeHtml(p.nombre)}</div>
+            <div class="meta">${p.tipoDoc} ${escapeHtml(p.cc)}</div>
+          </div>
+          ${p._resp
+            ? `<span class="badge badge-ok">${p._resp} respondido${p._resp!==1?'s':''} · ${formatFecha(p._ult)}</span>`
+            : `<span class="badge" style="background:var(--color-fondo-secundario);color:var(--color-natural-medio)">Sin respuestas</span>`}
+        </div>`).join('') : `<div class="empty"><div class="ic">📄</div>${q ? 'Sin resultados' : 'No hay pacientes para mostrar'}</div>`}
+    </div>`;
+}
+
+/* ── Modal MAF tabulado ── */
+function openMAF(cc){
+  const p = PACIENTES_DATA.find(x => x.cc === cc); if(!p) return;
+  const mafs = respuestasMAF(cc);
+  _mafCC = cc; _mafTab = 'cat';
+  document.getElementById('maf-nombre').textContent = p.nombre;
+  const ult = mafs.length ? mafs[mafs.length-1] : null;
+  document.getElementById('maf-sub').textContent = mafs.length
+    ? `MAF · ${p.tipoDoc} ${p.cc} · última respuesta ${formatFecha(ult.fechaRespuesta)}${mafs.length>1 ? ` · ${mafs.length} respuestas` : ''}`
+    : `${p.tipoDoc} ${p.cc} · sin MAF respondido`;
+  document.getElementById('maf-tab-evo').style.display = mafs.length > 1 ? '' : 'none';
+  document.getElementById('maf-btn-hc').style.display = mafs.length ? '' : 'none';
+  document.getElementById('maf-tab-cat').classList.add('active');
+  document.getElementById('maf-tab-evo').classList.remove('active');
+  renderMAF();
+  document.getElementById('modal-maf').classList.add('open');
+}
+function cambiarTabMAF(t){
+  _mafTab = t;
+  document.getElementById('maf-tab-cat').classList.toggle('active', t === 'cat');
+  document.getElementById('maf-tab-evo').classList.toggle('active', t === 'evo');
+  document.getElementById('maf-btn-hc').style.display = (t === 'cat') ? '' : 'none';
+  renderMAF();
+}
+function renderMAF(){
+  const mafs = respuestasMAF(_mafCC);
+  const cont = document.getElementById('maf-content');
+  if(!mafs.length){ cont.innerHTML = `<div class="empty"><div class="ic">🩺</div>Este paciente aún no ha respondido el MAF.</div>`; return; }
+  if(_mafTab === 'evo' && mafs.length > 1) return renderMAFEvolucion(mafs);
+  renderMAFCategorias(mafs[mafs.length-1]); // última respuesta
+}
+
+function renderMAFCategorias(resp){
+  const cont = document.getElementById('maf-content');
+  const r = resp.respuestas || {};
+  const tab = tabularMAF(r);
+  const idsSig = new Set(), idsTot = new Set();
+  tab.forEach(c => { c.preguntas.forEach(p => idsTot.add(p.id)); c.significativas.forEach(p => idsSig.add(p.id)); });
+  const top = tab.filter(c => c.significativas.length > 0).sort((a,b) => b.significativas.length - a.significativas.length).slice(0,3);
+
+  const cats = tab.map(c => {
+    const filas = c.preguntas.map(p => {
+      let cls, etiqueta;
+      if(p.esSiNo){ etiqueta = p.valor === 1 ? 'Sí' : 'No'; cls = p.valor === 1 ? 'val-si' : 'val-0'; }
+      else { etiqueta = `${MAF_VALOR_LABEL[p.valor] || p.valor} (${p.valor})`; cls = 'val-' + (p.valor||0); }
+      return `<div class="maf-fila ${cls}"><span>${escapeHtml(p.texto)}</span><span class="maf-val">${etiqueta}</span></div>`;
+    }).join('');
+    return `
+      <div class="maf-cat">
+        <div class="maf-cat-head">
+          <span class="maf-cat-num">Categoría ${c.categoria.numero}</span>
+          ${c.muyImplicada ? `<span class="badge badge-implicada">⚠️ Categoría muy implicada</span>` : ''}
+          <span class="maf-cat-sub">${c.significativas.length} de ${c.preguntas.length} con valor ≥ 2</span>
+        </div>
+        ${filas}
+      </div>`;
+  }).join('');
+
+  const afect = tab.filter(c => c.significativas.length > 0).sort((a,b) => b.significativas.length - a.significativas.length);
+  const maxA = afect.length ? afect[0].significativas.length : 1;
+  const barras = afect.map(c => `
+    <div class="maf-bar-row">
+      <span class="maf-bar-lbl">Categoría ${c.categoria.numero}</span>
+      <span class="maf-bar-track"><span class="maf-bar-fill" style="width:${Math.round(c.significativas.length / maxA * 100)}%"></span></span>
+      <span class="maf-bar-num">${c.significativas.length}</span>
+    </div>`).join('');
+
+  cont.innerHTML = `
+    <div class="maf-resumen">
+      <div class="maf-resumen-tot"><strong>${idsSig.size}</strong> síntomas significativos de ${idsTot.size} preguntas</div>
+      <div class="maf-resumen-chips">${top.length ? top.map(c => `<span class="badge badge-revisar">Cat. ${c.categoria.numero}: ${c.significativas.length} síntoma${c.significativas.length!==1?'s':''}</span>`).join('') : '<span class="muted">Sin síntomas significativos</span>'}</div>
+    </div>
+    ${cats}
+    ${afect.length ? `<div class="maf-afectadas"><div class="maf-afectadas-h">Categorías más afectadas</div>${barras}</div>` : ''}`;
+}
+
+function renderMAFEvolucion(mafs){
+  const cont = document.getElementById('maf-content');
+  const fechas = mafs.map(m => m.fechaRespuesta);
+  // Solo preguntas relevantes: con valor ≥2 en alguna respuesta, o que cambiaron entre respuestas
+  const ids = MAF_PREGUNTAS.map(p => p.id).filter(id => {
+    const vals = mafs.map(m => (m.respuestas||{})[id] ?? 0);
+    return vals.some(v => v >= 2) || vals.some((v,i) => i > 0 && v !== vals[i-1]);
+  });
+  const filas = ids.map(id => {
+    const p = MAF_PREGUNTAS.find(x => x.id === id);
+    const cels = mafs.map((m,i) => {
+      const v = (m.respuestas||{})[id] ?? 0;
+      const prev = i > 0 ? ((mafs[i-1].respuestas||{})[id] ?? 0) : v;
+      const cls = (i > 0 && v > prev) ? 'evo-up' : (i > 0 && v < prev) ? 'evo-down' : '';
+      return `<td class="${cls}">${v}</td>`;
+    }).join('');
+    return `<tr><td class="evo-q">${escapeHtml(p.texto)}</td>${cels}</tr>`;
+  }).join('');
+
+  cont.innerHTML = `
+    <div class="evo-tabla-wrap">
+      <table class="evo-tabla">
+        <thead><tr><th>Pregunta</th>${fechas.map(f => `<th>${formatFecha(f)}</th>`).join('')}</tr></thead>
+        <tbody>${filas || `<tr><td colspan="${fechas.length+1}" class="muted" style="padding:14px">Sin cambios relevantes entre respuestas.</td></tr>`}</tbody>
+      </table>
+    </div>
+    <div class="maf-afectadas-h" style="margin-top:20px">Evolución de síntomas significativos por categoría</div>
+    <div style="max-width:640px"><canvas id="maf-evo-chart"></canvas></div>`;
+
+  const cats = {};
+  MAF_CATEGORIAS.forEach(cat => {
+    const serie = mafs.map(m => {
+      const rr = m.respuestas || {};
+      return MAF_PREGUNTAS.filter(p => p.categorias.includes(cat.id)).filter(p => (rr[p.id] ?? 0) >= 2).length;
+    });
+    if(serie.some(v => v > 0)) cats[cat.numero] = serie;
+  });
+  if(_mafEvoChart){ _mafEvoChart.destroy(); _mafEvoChart = null; }
+  const ctx = document.getElementById('maf-evo-chart');
+  if(ctx && window.Chart){
+    const palette = ['#00B4C8','#9B4EBF','#D4622A','#007A60','#0A3D6B','#A84040','#6B7055','#3A8FA0'];
+    const datasets = Object.entries(cats).map(([num,serie],i) => ({ label:'Cat. '+num, data:serie, borderColor:palette[i%palette.length], backgroundColor:'transparent', tension:.3 }));
+    _mafEvoChart = new Chart(ctx, { type:'line', data:{ labels:fechas.map(f => formatFecha(f)), datasets }, options:{ plugins:{ legend:{ position:'bottom', labels:{ font:{ family:'Montserrat' } } } }, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } } } });
+  }
+}
+
+function copiarHC(){
+  const mafs = respuestasMAF(_mafCC);
+  if(!mafs.length) return;
+  const p = PACIENTES_DATA.find(x => x.cc === _mafCC);
+  const resp = mafs[mafs.length-1];
+  const tab = tabularMAF(resp.respuestas || {});
+  const idsSig = new Set(), idsTot = new Set();
+  tab.forEach(c => { c.preguntas.forEach(q => idsTot.add(q.id)); c.significativas.forEach(s => idsSig.add(s.id)); });
+
+  let txt = `METABOLIC ASSESSMENT FORM — ${p?.nombre || ''} — ${formatFecha(resp.fechaRespuesta)}\n\nSÍNTOMAS SIGNIFICATIVOS (valor 2-3):\n`;
+  tab.filter(c => c.significativas.length > 0).forEach(c => {
+    txt += `\nCATEGORÍA ${c.categoria.numero} (${c.significativas.length} síntoma${c.significativas.length!==1?'s':''})${c.muyImplicada ? ' ⚠️ MUY IMPLICADA' : ''}:\n`;
+    c.significativas.forEach(s => { txt += `• ${s.texto} — ${MAF_VALOR_LABEL[s.valor]} (${s.valor})\n`; });
+  });
+  const afect = tab.filter(c => c.significativas.length > 0).sort((a,b) => b.significativas.length - a.significativas.length);
+  txt += `\nCATEGORÍAS MÁS AFECTADAS: ${afect.map(c => `Cat. ${c.categoria.numero} (${c.significativas.length})`).join(', ') || 'ninguna'}\n`;
+  txt += `\nTotal síntomas significativos: ${idsSig.size} de ${idsTot.size} preguntas respondidas\n`;
+
+  navigator.clipboard?.writeText(txt).then(
+    () => mostrarToast('✅ Copiado al portapapeles', 'Listo para pegar en la HC', 'verde'),
+    () => mostrarToast('⚠️ No se pudo copiar', 'Reintenta o copia manual', 'amber')
+  );
 }
 
 /* ═══════════════════════════════════════════════════════════
-   12. MÓDULO MÉTRICAS (admin)
+   12. MÓDULO MÉTRICAS (solo Médico Administrador)
 ═══════════════════════════════════════════════════════════ */
-let _chart = null;
+let _metDesde = '', _metHasta = '', _metMedico = '', _metCharts = [];
 function buildMetricas(){
-  const enviados = TOKENS_DATA.length;
-  const respondidos = TOKENS_DATA.filter(t => t.estado==='respondido').length;
-  const pendientes = enviados - respondidos;
+  const pacByCC = Object.fromEntries(PACIENTES_DATA.map(p => [p.cc, p]));
+  let mafs = RESPUESTAS_DATA.filter(r => r.formId === 'MAF01');
+  if(_metDesde)  mafs = mafs.filter(r => (r.fechaRespuesta||'') >= _metDesde);
+  if(_metHasta)  mafs = mafs.filter(r => (r.fechaRespuesta||'') <= _metHasta);
+  if(_metMedico) mafs = mafs.filter(r => (pacByCC[r.cc]?.medicoTratante||'') === _metMedico);
+
+  // Tasa de respuesta (MAF)
+  const tok = TOKENS_DATA.filter(t => t.formId === 'MAF01');
+  const enviados = tok.length, respondidos = tok.filter(t => t.estado === 'respondido').length;
+  const tasa = enviados ? Math.round(respondidos / enviados * 100) : 0;
+
+  // Agregados sobre las respuestas filtradas
+  const catSig = {}; MAF_CATEGORIAS.forEach(c => catSig[c.numero] = 0);
+  const symCount = {}, porMes = {};
+  mafs.forEach(r => {
+    const tab = tabularMAF(r.respuestas || {});
+    const idsSig = new Set();
+    tab.forEach(c => { catSig[c.categoria.numero] += c.significativas.length; c.significativas.forEach(s => { idsSig.add(s.id); symCount[s.id] = (symCount[s.id]||0) + 1; }); });
+    const mes = (r.fechaRespuesta||'').slice(0,7);
+    if(mes){ (porMes[mes] = porMes[mes] || []).push(idsSig.size); }
+  });
+  const catTop = Object.entries(catSig).filter(([,v]) => v > 0).sort((a,b) => b[1]-a[1]).slice(0,10);
+  const symTop = Object.entries(symCount).sort((a,b) => b[1]-a[1]).slice(0,10)
+    .map(([id,n]) => ({ texto:(MAF_PREGUNTAS.find(p => p.id === id)||{}).texto || id, n }));
+  const meses = Object.keys(porMes).sort();
+  const promMes = meses.map(m => Math.round(porMes[m].reduce((a,b) => a+b, 0) / porMes[m].length * 10) / 10);
+
   document.getElementById('page-metricas').innerHTML = `
-    <div class="section-head"><h2>Métricas</h2></div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:20px">
-      ${[['Pacientes',PACIENTES_DATA.filter(p=>p.activo!=='no').length,'var(--acento-teal-medio)'],
-         ['Formularios enviados',enviados,'var(--acento-primario)'],
-         ['Respondidos',respondidos,'var(--color-natural-acento)'],
-         ['Pendientes',pendientes,'var(--acento-naranja)']]
-        .map(([l,v,c]) => `<div class="card" style="text-align:center"><div style="font-size:34px;font-weight:800;color:${c}">${v}</div><div class="muted" style="text-transform:uppercase;letter-spacing:.06em;font-size:11px;font-weight:700">${l}</div></div>`).join('')}
+    <div class="section-head"><h2>Métricas · MAF</h2><div class="spacer"></div></div>
+    <div class="card" style="margin-bottom:18px;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end">
+      <div class="field" style="margin:0"><label>Desde</label><input type="date" value="${_metDesde}" onchange="_metDesde=this.value;buildMetricas()" style="padding:9px 12px;border:1.5px solid var(--color-arena);border-radius:var(--radio)"/></div>
+      <div class="field" style="margin:0"><label>Hasta</label><input type="date" value="${_metHasta}" onchange="_metHasta=this.value;buildMetricas()" style="padding:9px 12px;border:1.5px solid var(--color-arena);border-radius:var(--radio)"/></div>
+      <div class="field" style="margin:0"><label>Profesional / unidad tratante</label>
+        <select onchange="_metMedico=this.value;buildMetricas()" style="padding:9px 12px;border:1.5px solid var(--color-arena);border-radius:var(--radio)">
+          <option value="">Todos</option>${[...MEDICOS, ...UNIDADES.map(u => u.nombre)].map(m => `<option ${_metMedico===m?'selected':''}>${m}</option>`).join('')}
+        </select></div>
+      ${(_metDesde||_metHasta||_metMedico) ? `<button class="btn btn-ghost" onclick="_metDesde='';_metHasta='';_metMedico='';buildMetricas()">Limpiar filtros</button>` : ''}
     </div>
-    <div class="card"><div class="section-head"><h2>Envíos por estado</h2></div>
-      <div style="max-width:320px;margin:0 auto"><canvas id="m-chart"></canvas></div></div>`;
-  if(_chart){ _chart.destroy(); _chart = null; }
-  const ctx = document.getElementById('m-chart');
-  if(ctx && window.Chart){
-    _chart = new Chart(ctx, {
-      type:'doughnut',
-      data:{ labels:['Respondidos','Pendientes'], datasets:[{ data:[respondidos,pendientes], backgroundColor:['#007A60','#D4622A'], borderWidth:0 }] },
-      options:{ plugins:{ legend:{ position:'bottom', labels:{ font:{ family:'Montserrat' } } } }, cutout:'62%' }
-    });
-  }
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:20px">
+      ${[['MAF respondidos', mafs.length, 'var(--acento-teal-medio)'],
+         ['Enviados', enviados, 'var(--acento-primario)'],
+         ['Tasa de respuesta', tasa + '%', 'var(--color-natural-acento)'],
+         ['Síntomas sign. (prom.)', mafs.length ? Math.round(Object.values(catSig).reduce((a,b)=>a+b,0)/mafs.length) : 0, 'var(--acento-holistico)']]
+        .map(([l,v,c]) => `<div class="card" style="text-align:center"><div style="font-size:32px;font-weight:800;color:${c}">${v}</div><div class="muted" style="text-transform:uppercase;letter-spacing:.05em;font-size:10.5px;font-weight:700">${l}</div></div>`).join('')}
+    </div>
+    ${mafs.length === 0 ? `<div class="card"><div class="empty"><div class="ic">📊</div>No hay respuestas de MAF para los filtros seleccionados.</div></div>` : `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px" class="met-grid">
+      <div class="card"><div class="section-head"><h2>Categorías más afectadas</h2></div><canvas id="met-cat"></canvas></div>
+      <div class="card"><div class="section-head"><h2>Evolución poblacional (prom. síntomas/mes)</h2></div><canvas id="met-evo"></canvas></div>
+    </div>
+    <div class="card" style="margin-top:18px"><div class="section-head"><h2>Top 10 síntomas reportados (valor ≥ 2)</h2></div>
+      ${symTop.map((s,i) => `<div class="maf-bar-row"><span class="maf-bar-lbl" style="flex:0 0 24px">${i+1}.</span><span style="flex:1;font-size:13px;color:var(--color-estructura-gris)">${escapeHtml(s.texto)}</span><span class="maf-bar-num">${s.n}</span></div>`).join('')}
+    </div>`}`;
+
+  _metCharts.forEach(c => { try{ c.destroy(); }catch(_){} }); _metCharts = [];
+  if(!mafs.length || !window.Chart) return;
+  const cc = document.getElementById('met-cat');
+  if(cc) _metCharts.push(new Chart(cc, { type:'bar', data:{ labels:catTop.map(([n]) => 'Cat. '+n), datasets:[{ data:catTop.map(([,v]) => v), backgroundColor:'#3A8FA0', borderWidth:0 }] }, options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } } } }));
+  const ce = document.getElementById('met-evo');
+  if(ce) _metCharts.push(new Chart(ce, { type:'line', data:{ labels:meses, datasets:[{ data:promMes, borderColor:'#00B4C8', backgroundColor:'transparent', tension:.3 }] }, options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } } } }));
 }
 
 /* ═══════════════════════════════════════════════════════════

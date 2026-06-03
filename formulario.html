@@ -68,6 +68,13 @@ input,textarea{font-family:inherit;font-size:17px}
 .campo{width:100%;padding:16px 18px;border:1.5px solid var(--arena);border-radius:var(--radio);background:#fff;color:var(--texto);outline:none}
 .campo:focus{border-color:var(--primario)}
 textarea.campo{min-height:120px;resize:vertical;line-height:1.5}
+.lista-add{display:flex;gap:10px;margin-bottom:16px}
+.lista-add .campo{flex:1}
+.btn-add-item{background:var(--bosque);color:#fff;border:none;border-radius:var(--radio);padding:0 18px;font-weight:700;font-size:15px;white-space:nowrap}
+.lista-items{display:flex;flex-direction:column;gap:8px}
+.lista-chip{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--card);border:1.5px solid var(--arena);border-radius:var(--radio);padding:13px 16px;font-size:15px;font-weight:600;color:var(--gris)}
+.lista-chip button{background:none;border:none;color:var(--naranja);font-size:24px;line-height:1;font-weight:700;flex-shrink:0}
+.lista-vacia{font-size:14px;color:var(--oliva);font-style:italic;padding:8px 2px}
 
 .nav{display:flex;align-items:center;gap:12px;padding:16px 24px 26px;flex-shrink:0}
 .btn-volver{background:none;border:none;color:var(--oliva);font-size:15px;font-weight:600;display:flex;align-items:center;gap:6px;padding:8px;opacity:1}
@@ -431,15 +438,12 @@ function mafConstruirPreguntas(ans){
   qs.push({ id:'h_alcohol',   seccion:H, texto:'¿Cuántas bebidas alcohólicas consumes por semana?', tipo:'numero' });
   qs.push({ id:'h_cafeina',   seccion:H, texto:'¿Cuántas bebidas con cafeína consumes al día?', tipo:'numero' });
   qs.push({ id:'h_calle',     seccion:H, texto:'¿Cuántas comidas haces en la calle por semana?', tipo:'numero' });
-  qs.push({ id:'h_nueces',    seccion:H, texto:'¿Cuántas veces comes nueces o frutos secos por semana?', tipo:'numero' });
   qs.push({ id:'h_pescado',   seccion:H, texto:'¿Cuántas veces comes pescado por semana?', tipo:'numero' });
   qs.push({ id:'h_ejercicio', seccion:H, texto:'¿Cuántas veces haces ejercicio por semana?', tipo:'numero' });
   qs.push({ id:'h_estres',    seccion:H, texto:'En una escala de 1 a 10, ¿cuál es tu nivel de estrés habitual?', tipo:'numero' });
-  qs.push({ id:'h_menos_sanas', seccion:H, texto:'Menciona las 3 comidas menos saludables que sueles consumir', tipo:'textarea' });
-  qs.push({ id:'h_mas_sanos',   seccion:H, texto:'Menciona los 3 alimentos más saludables que sueles consumir', tipo:'textarea' });
-  // PARTE IV — medicamentos y suplementos
-  qs.push({ id:'medicamentos', seccion:'Medicamentos y suplementos', texto:'¿Qué medicamentos tomas actualmente? (escribe "ninguno" si no tomas)', tipo:'textarea', opcional:true });
-  qs.push({ id:'suplementos',  seccion:'Medicamentos y suplementos', texto:'¿Qué suplementos tomas actualmente? (escribe "ninguno" si no tomas)', tipo:'textarea', opcional:true });
+  // PARTE IV — medicamentos y suplementos (uno por uno, para estadística por nombre)
+  qs.push({ id:'medicamentos', seccion:'Medicamentos y suplementos', texto:'¿Qué medicamentos tomas actualmente? Agrégalos uno por uno.', tipo:'lista', placeholder:'Nombre del medicamento', opcional:true });
+  qs.push({ id:'suplementos',  seccion:'Medicamentos y suplementos', texto:'¿Qué suplementos tomas actualmente? Agrégalos uno por uno.', tipo:'lista', placeholder:'Nombre del suplemento', opcional:true });
   return qs;
 }
 
@@ -570,6 +574,14 @@ function renderPregunta(dir){
       const numLabel = (q.tipo === 'seleccion') ? '' : `<span class="num">${i}</span>`;
       return `<button class="opcion ${isSel?'sel':''}" onclick="responder('${q.id}',${q.tipo==='seleccion'?`'${et.replace(/'/g,"\\'")}'`:i},true)">${numLabel}<span>${et}</span></button>`;
     }).join('') + `</div>`;
+  } else if(q.tipo === 'lista'){
+    const items = Array.isArray(val) ? val : [];
+    html += `
+      <div class="lista-add">
+        <input class="campo" type="text" id="lista-input" placeholder="${escForm(q.placeholder||'Escribe y agrega')}" onkeydown="if(event.key==='Enter'){event.preventDefault();agregarItemLista('${q.id}')}"/>
+        <button class="btn-add-item" onclick="agregarItemLista('${q.id}')">+ Agregar</button>
+      </div>
+      <div class="lista-items" id="lista-items">${renderItemsLista(q.id, items)}</div>`;
   } else if(q.tipo === 'numero'){
     html += `<input class="campo" type="number" inputmode="numeric" id="campo-input" value="${val!=null?val:''}" placeholder="Escribe un número" oninput="onCampo('${q.id}')"/>`;
   } else if(q.tipo === 'textarea'){
@@ -626,10 +638,31 @@ function onCampo(qid){
   S.answers[qid] = (q.tipo === 'numero') ? (el.value === '' ? '' : Number(el.value)) : el.value;
   actualizarContinuar(q, S.answers[qid]);
 }
+function escForm(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function renderItemsLista(qid, items){
+  if(!items.length) return '<div class="lista-vacia">Aún no agregaste ninguno. Si no tomas, puedes continuar.</div>';
+  return items.map((it, i) => `<div class="lista-chip"><span>${escForm(it)}</span><button onclick="quitarItemLista('${qid}',${i})" aria-label="Quitar">×</button></div>`).join('');
+}
+function agregarItemLista(qid){
+  const el = document.getElementById('lista-input');
+  const v = (el.value || '').trim();
+  if(!v) return;
+  const arr = Array.isArray(S.answers[qid]) ? S.answers[qid] : [];
+  arr.push(v); S.answers[qid] = arr;
+  el.value = ''; el.focus();
+  guardarProgreso();
+  document.getElementById('lista-items').innerHTML = renderItemsLista(qid, arr);
+}
+function quitarItemLista(qid, i){
+  const arr = Array.isArray(S.answers[qid]) ? S.answers[qid] : [];
+  arr.splice(i, 1); S.answers[qid] = arr;
+  guardarProgreso();
+  document.getElementById('lista-items').innerHTML = renderItemsLista(qid, arr);
+}
 function continuar(){
   const q = S.preguntas[S.idx];
-  // Para opcionales sin respuesta, registrar cadena vacía
-  if(S.answers[q.id] == null) S.answers[q.id] = '';
+  // Para opcionales sin respuesta: lista → arreglo vacío; resto → cadena vacía
+  if(S.answers[q.id] == null) S.answers[q.id] = (q.tipo === 'lista') ? [] : '';
   guardarProgreso();
   S.idx++;
   renderPregunta('right');
