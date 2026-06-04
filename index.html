@@ -824,7 +824,7 @@ function puntuarEscala(formId, r){
     const clin = (r.yfas11 === 1 || r.yfas12 === 1) ? 1 : 0;
     const dx = (clin === 1 && sintomas >= 2);                                  // Dx: malestar/interferencia + ≥2 síntomas
     const band = cfg.interpretacion.find(b => sintomas >= b.sintomas[0] && sintomas <= b.sintomas[1]) || cfg.interpretacion[cfg.interpretacion.length-1];
-    return { scoreLabel:`${sintomas} síntoma${sintomas!==1?'s':''} · Dx adicción: ${dx?'Sí':'No'}`, interpretacion:band.label, color:band.color, alarma: sintomas >= 4 ? cfg.alarma : '' };
+    return { valor:sintomas, scoreLabel:`${sintomas} síntoma${sintomas!==1?'s':''} · Dx adicción: ${dx?'Sí':'No'}`, interpretacion:band.label, color:band.color, alarma: sintomas >= 4 ? cfg.alarma : '' };
   }
   let total = 0;
   cfg.preguntas.forEach(q => {
@@ -834,7 +834,7 @@ function puntuarEscala(formId, r){
   });
   const band = cfg.interpretacion.find(b => total >= b.min && total <= b.max) || cfg.interpretacion[cfg.interpretacion.length-1];
   const alarma = (cfg.alarmaMin != null && total >= cfg.alarmaMin) ? cfg.alarma : '';
-  return { scoreLabel:`${total} / ${cfg.maxScore}`, interpretacion:band.label, color:band.color, alarma };
+  return { valor:total, scoreLabel:`${total} / ${cfg.maxScore}`, interpretacion:band.label, color:band.color, alarma };
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1555,20 +1555,44 @@ function copiarHCMaf(){
 /* ═══════════════════════════════════════════════════════════
    12. MÓDULO MÉTRICAS (solo Médico Administrador)
 ═══════════════════════════════════════════════════════════ */
-let _metDesde = '', _metHasta = '', _metMedico = '', _metCharts = [];
-function buildMetricas(){
+let _metDesde = '', _metHasta = '', _metMedico = '', _metForm = 'MAF01', _metCharts = [];
+const MET_CHIPS = [
+  {id:'MAF01',label:'MAF'},{id:'PSS01',label:'Estrés (PSS-4)'},{id:'ISI01',label:'Sueño (ISI)'},
+  {id:'YFAS01',label:'Comida (mYFAS)'},{id:'EEQ01',label:'Emocional (EEQ)'},
+];
+function respuestasFiltradas(formId){
   const pacByCC = Object.fromEntries(PACIENTES_DATA.map(p => [p.cc, p]));
-  let mafs = RESPUESTAS_DATA.filter(r => r.formId === 'MAF01');
-  if(_metDesde)  mafs = mafs.filter(r => (r.fechaRespuesta||'') >= _metDesde);
-  if(_metHasta)  mafs = mafs.filter(r => (r.fechaRespuesta||'') <= _metHasta);
-  if(_metMedico) mafs = mafs.filter(r => (pacByCC[r.cc]?.medicoTratante||'') === _metMedico);
+  let rs = RESPUESTAS_DATA.filter(r => r.formId === formId);
+  if(_metDesde)  rs = rs.filter(r => (r.fechaRespuesta||'') >= _metDesde);
+  if(_metHasta)  rs = rs.filter(r => (r.fechaRespuesta||'') <= _metHasta);
+  if(_metMedico) rs = rs.filter(r => (pacByCC[r.cc]?.medicoTratante||'') === _metMedico);
+  return rs;
+}
+function buildMetricas(){
+  document.getElementById('page-metricas').innerHTML = `
+    <div class="section-head"><h2>Métricas</h2><div class="spacer"></div></div>
+    <div class="card" style="margin-bottom:16px;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end">
+      <div class="field" style="margin:0"><label>Desde</label><input type="date" value="${_metDesde}" onchange="_metDesde=this.value;buildMetricas()" style="padding:9px 12px;border:1.5px solid var(--color-arena);border-radius:var(--radio)"/></div>
+      <div class="field" style="margin:0"><label>Hasta</label><input type="date" value="${_metHasta}" onchange="_metHasta=this.value;buildMetricas()" style="padding:9px 12px;border:1.5px solid var(--color-arena);border-radius:var(--radio)"/></div>
+      <div class="field" style="margin:0"><label>Profesional / unidad tratante</label>
+        <select onchange="_metMedico=this.value;buildMetricas()" style="padding:9px 12px;border:1.5px solid var(--color-arena);border-radius:var(--radio)">
+          <option value="">Todos</option>${[...MEDICOS, ...UNIDADES.map(u => u.nombre)].map(m => `<option ${_metMedico===m?'selected':''}>${m}</option>`).join('')}
+        </select></div>
+      ${(_metDesde||_metHasta||_metMedico) ? `<button class="btn btn-ghost" onclick="_metDesde='';_metHasta='';_metMedico='';buildMetricas()">Limpiar filtros</button>` : ''}
+    </div>
+    <div class="res-chips" style="margin-bottom:18px">
+      ${MET_CHIPS.map(c => `<button class="res-chip ${_metForm===c.id?'active':''}" onclick="_metForm='${c.id}';buildMetricas()">${c.label}</button>`).join('')}
+    </div>
+    <div id="met-content"></div>`;
+  _metCharts.forEach(c => { try{ c.destroy(); }catch(_){} }); _metCharts = [];
+  if(_metForm === 'MAF01') renderMetricasMAF(); else renderMetricasEscala(_metForm);
+}
 
-  // Tasa de respuesta (MAF)
+function renderMetricasMAF(){
+  const mafs = respuestasFiltradas('MAF01');
   const tok = TOKENS_DATA.filter(t => t.formId === 'MAF01');
   const enviados = tok.length, respondidos = tok.filter(t => t.estado === 'respondido').length;
   const tasa = enviados ? Math.round(respondidos / enviados * 100) : 0;
-
-  // Agregados sobre las respuestas filtradas
   const catSig = {}; MAF_CATEGORIAS.forEach(c => catSig[c.numero] = 0);
   const symCount = {}, porMes = {};
   mafs.forEach(r => {
@@ -1583,18 +1607,7 @@ function buildMetricas(){
     .map(([id,n]) => ({ texto:(MAF_PREGUNTAS.find(p => p.id === id)||{}).texto || id, n }));
   const meses = Object.keys(porMes).sort();
   const promMes = meses.map(m => Math.round(porMes[m].reduce((a,b) => a+b, 0) / porMes[m].length * 10) / 10);
-
-  document.getElementById('page-metricas').innerHTML = `
-    <div class="section-head"><h2>Métricas · MAF</h2><div class="spacer"></div></div>
-    <div class="card" style="margin-bottom:18px;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end">
-      <div class="field" style="margin:0"><label>Desde</label><input type="date" value="${_metDesde}" onchange="_metDesde=this.value;buildMetricas()" style="padding:9px 12px;border:1.5px solid var(--color-arena);border-radius:var(--radio)"/></div>
-      <div class="field" style="margin:0"><label>Hasta</label><input type="date" value="${_metHasta}" onchange="_metHasta=this.value;buildMetricas()" style="padding:9px 12px;border:1.5px solid var(--color-arena);border-radius:var(--radio)"/></div>
-      <div class="field" style="margin:0"><label>Profesional / unidad tratante</label>
-        <select onchange="_metMedico=this.value;buildMetricas()" style="padding:9px 12px;border:1.5px solid var(--color-arena);border-radius:var(--radio)">
-          <option value="">Todos</option>${[...MEDICOS, ...UNIDADES.map(u => u.nombre)].map(m => `<option ${_metMedico===m?'selected':''}>${m}</option>`).join('')}
-        </select></div>
-      ${(_metDesde||_metHasta||_metMedico) ? `<button class="btn btn-ghost" onclick="_metDesde='';_metHasta='';_metMedico='';buildMetricas()">Limpiar filtros</button>` : ''}
-    </div>
+  document.getElementById('met-content').innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:20px">
       ${[['MAF respondidos', mafs.length, 'var(--acento-teal-medio)'],
          ['Enviados', enviados, 'var(--acento-primario)'],
@@ -1610,11 +1623,49 @@ function buildMetricas(){
     <div class="card" style="margin-top:18px"><div class="section-head"><h2>Top 10 síntomas reportados (valor ≥ 2)</h2></div>
       ${symTop.map((s,i) => `<div class="maf-bar-row"><span class="maf-bar-lbl" style="flex:0 0 24px">${i+1}.</span><span style="flex:1;font-size:13px;color:var(--color-estructura-gris)">${escapeHtml(s.texto)}</span><span class="maf-bar-num">${s.n}</span></div>`).join('')}
     </div>`}`;
-
-  _metCharts.forEach(c => { try{ c.destroy(); }catch(_){} }); _metCharts = [];
   if(!mafs.length || !window.Chart) return;
   const cc = document.getElementById('met-cat');
   if(cc) _metCharts.push(new Chart(cc, { type:'bar', data:{ labels:catTop.map(([n]) => 'Cat. '+n), datasets:[{ data:catTop.map(([,v]) => v), backgroundColor:'#3A8FA0', borderWidth:0 }] }, options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } } } }));
+  const ce = document.getElementById('met-evo');
+  if(ce) _metCharts.push(new Chart(ce, { type:'line', data:{ labels:meses, datasets:[{ data:promMes, borderColor:'#00B4C8', backgroundColor:'transparent', tension:.3 }] }, options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } } } }));
+}
+
+function renderMetricasEscala(formId){
+  const cfg = ESCALAS[formId];
+  const rs  = respuestasFiltradas(formId);
+  const tok = TOKENS_DATA.filter(t => t.formId === formId);
+  const enviados = tok.length, respondidos = tok.filter(t => t.estado === 'respondido').length;
+  const tasa = enviados ? Math.round(respondidos / enviados * 100) : 0;
+  const evals = rs.map(r => puntuarEscala(formId, r.respuestas || {}));
+  const n = evals.length;
+  const prom = n ? Math.round(evals.reduce((a,e) => a + e.valor, 0) / n * 10) / 10 : 0;
+  const enAlarma = evals.filter(e => e.alarma).length;
+  const pctAlarma = n ? Math.round(enAlarma / n * 100) : 0;
+  const esYfas = cfg.tabulacion === 'yfas';
+  const promLabel = n ? (esYfas ? `${prom} sínt.` : `${prom}/${cfg.maxScore}`) : '—';
+  const dist = cfg.interpretacion.map(b => ({ label:b.label, color:b.color, n: evals.filter(e => e.interpretacion === b.label).length }));
+  const porMes = {};
+  rs.forEach((r,i) => { const m = (r.fechaRespuesta||'').slice(0,7); if(m){ (porMes[m] = porMes[m] || []).push(evals[i].valor); } });
+  const meses = Object.keys(porMes).sort();
+  const promMes = meses.map(m => Math.round(porMes[m].reduce((a,b) => a+b, 0) / porMes[m].length * 10) / 10);
+
+  document.getElementById('met-content').innerHTML = `
+    <div class="esc-desc">${cfg.descripcion}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:20px">
+      ${[['Respondidos', n, 'var(--acento-teal-medio)'],
+         ['Puntaje promedio', promLabel, 'var(--acento-primario)'],
+         ['% en alarma', pctAlarma + '%', 'var(--acento-ladrillo)'],
+         ['Tasa de respuesta', tasa + '%', 'var(--color-natural-acento)']]
+        .map(([l,v,c]) => `<div class="card" style="text-align:center"><div style="font-size:30px;font-weight:800;color:${c}">${v}</div><div class="muted" style="text-transform:uppercase;letter-spacing:.05em;font-size:10.5px;font-weight:700">${l}</div></div>`).join('')}
+    </div>
+    ${n === 0 ? `<div class="card"><div class="empty"><div class="ic">📊</div>No hay respuestas de ${cfg.nombre} para los filtros seleccionados.</div></div>` : `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px" class="met-grid">
+      <div class="card"><div class="section-head"><h2>Distribución por interpretación</h2></div><canvas id="met-dist"></canvas></div>
+      <div class="card"><div class="section-head"><h2>Evolución del puntaje promedio por mes</h2></div><canvas id="met-evo"></canvas></div>
+    </div>`}`;
+  if(!n || !window.Chart) return;
+  const cd = document.getElementById('met-dist');
+  if(cd) _metCharts.push(new Chart(cd, { type:'bar', data:{ labels:dist.map(d => d.label), datasets:[{ data:dist.map(d => d.n), backgroundColor:dist.map(d => d.color), borderWidth:0 }] }, options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } } } }));
   const ce = document.getElementById('met-evo');
   if(ce) _metCharts.push(new Chart(ce, { type:'line', data:{ labels:meses, datasets:[{ data:promMes, borderColor:'#00B4C8', backgroundColor:'transparent', tension:.3 }] }, options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } } } }));
 }
