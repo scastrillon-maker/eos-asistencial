@@ -81,11 +81,11 @@ input,select,textarea{font-family:inherit;font-size:15px}
 .lg-concepts{list-style:none;display:flex;flex-direction:column;gap:7px;margin:0;padding:0}
 .lg-concepts li{font-weight:300;font-size:11px;letter-spacing:.08em;color:rgba(237,233,223,.45)}
 .lg-concepts li.on{color:#EDE9DF}
-.lg-main{flex:1;background:#EDE9DF;padding:48px 44px;display:flex;flex-direction:column;justify-content:center}
-.lg-form{width:100%;max-width:360px}
-.lg-eyebrow{color:#00B4C8;font-weight:700;font-size:10px;letter-spacing:.2em;text-transform:uppercase;margin-bottom:14px}
-.lg-title{color:#1E1B4B;font-weight:800;font-size:22px;text-transform:uppercase;letter-spacing:-.01em;line-height:1.15;margin-bottom:10px}
-.lg-subtitle{color:#6B7055;font-weight:400;font-size:12px;margin-bottom:36px}
+.lg-main{flex:1;background:#EDE9DF;padding:48px 44px;display:flex;align-items:center;justify-content:center}
+.lg-form{width:420px;max-width:100%}
+.lg-eyebrow{color:#00B4C8;font-weight:700;font-size:10px;letter-spacing:.2em;text-transform:uppercase;margin-bottom:8px}
+.lg-title{color:#1E1B4B;font-weight:800;font-size:28px;text-transform:uppercase;letter-spacing:-.01em;line-height:1.15;margin-bottom:6px}
+.lg-subtitle{color:#6B7055;font-weight:400;font-size:13px;margin-bottom:36px}
 .lg-field{margin-bottom:20px}
 .lg-field label{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.15em;color:#1E1B4B;margin-bottom:7px}
 .lg-field input,.lg-field select{width:100%;background:#fff;border:1px solid rgba(30,27,75,.15);border-radius:8px;padding:11px 14px;font-family:'Montserrat',sans-serif;font-size:13px;color:#1E1B4B;outline:none;transition:border-color .15s}
@@ -334,7 +334,7 @@ input,select,textarea{font-family:inherit;font-size:15px}
       </div>
       <div class="lg-field">
         <label>Contraseña</label>
-        <input type="password" id="login-pass" placeholder="••••••" onkeydown="if(event.key==='Enter')doLogin()"/>
+        <input type="password" id="login-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"/>
       </div>
       <button class="lg-btn" onclick="doLogin()">Ingresar</button>
       <div class="login-error" id="login-error"></div>
