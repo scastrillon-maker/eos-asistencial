@@ -284,6 +284,17 @@ input,select,textarea{font-family:inherit;font-size:15px}
 .res-chip{background:var(--color-fondo-secundario);border:1.5px solid var(--color-arena);border-radius:30px;padding:8px 14px;font-size:12.5px;font-weight:700;color:var(--color-estructura-gris)}
 .res-chip:hover{border-color:var(--acento-teal-medio)}
 .res-chip.active{background:var(--color-estructura-oscura);border-color:var(--color-estructura-oscura);color:#fff}
+.res-chip.pendiente{opacity:.5;cursor:default;font-weight:600}
+/* Vista del médico: sesiones agrupadas (#res-chips dentro del modal MAF) */
+#res-chips{flex-direction:column;align-items:stretch;gap:14px}
+.res-sesion{border:1.5px solid var(--color-arena);border-radius:var(--radio);padding:10px 12px;background:var(--color-fondo-principal)}
+.res-sesion-h{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--color-natural-medio);margin-bottom:8px}
+.res-sesion-chips{display:flex;flex-wrap:wrap;gap:8px}
+/* Selector de envío (perfil) */
+.envio-row{display:flex;align-items:center;gap:10px;padding:9px 4px;cursor:pointer;border-bottom:1px solid var(--color-arena)}
+.envio-row:last-of-type{border-bottom:none}
+.envio-row input{width:18px;height:18px;accent-color:var(--acento-primario);flex-shrink:0}
+.envio-ic{font-size:18px;flex-shrink:0}
 .esc-desc{font-size:13px;line-height:1.55;color:var(--color-estructura-gris);background:var(--color-fondo-principal);border-left:3px solid var(--acento-teal-medio);border-radius:8px;padding:12px 14px;margin-bottom:16px}
 .esc-score{display:flex;align-items:center;gap:14px;background:#fff;border:1.5px solid var(--color-arena);border-left-width:5px;border-radius:var(--radio);padding:16px 18px;margin-bottom:12px}
 .esc-score-num{font-size:26px;font-weight:800;white-space:nowrap}
@@ -490,6 +501,8 @@ const GAS_URL   = 'https://script.google.com/macros/s/AKfycbyYxHSd5kzXtumun72Ptr
 // Base pública donde se aloja formulario.html (GitHub Pages del repo eos-asistencial):
 const FORM_BASE = 'https://scastrillon-maker.github.io/eos-asistencial/formulario.html';
 
+// ⚠️ TEMPORAL — contraseñas '1234' visibles en el código. Migrar a Firebase Auth
+// antes de go-live con pacientes reales. Hoy todos los usuarios son de prueba.
 const USUARIOS = {
   med1:   { nombre: 'Dr. Sebastian Castrillon Restrepo',     rol: 'Médico Administrador', color:'#4B2E9A', pass: '1234' },
   med2:   { nombre: 'Dra. Angelica Bermudez Ocampo',         rol: 'Médico',               color:'#0A3D6B', pass: '1234' },
@@ -937,16 +950,26 @@ function pacientesToRows(){
   const h = ['cc','tipoDoc','nombre','fechaNacimiento','telefono','email','medicoTratante','fechaRegistro','activo'];
   return [h, ...PACIENTES_DATA.map(p => [p.cc,p.tipoDoc,p.nombre,p.fechaNacimiento,p.telefono,p.email,p.medicoTratante,p.fechaRegistro,p.activo])];
 }
+// Tokens multi-formulario: col C = formIds (JSON array). Compat: si viene un formId
+// simple (token viejo), se lee como lista de uno. F = formIdsRespondidos, G = creadoPor.
 function rowsToTokens(rows){
   if(!rows || rows.length < 2) return;
   TOKENS_DATA.length = 0;
   rows.slice(1).forEach(r => { if(!r[0]) return;
-    TOKENS_DATA.push({ token:String(r[0]), cc:String(r[1]||''), formId:String(r[2]||''), fechaEnvio:String(r[3]||'').slice(0,10), estado:String(r[4]||'pendiente') });
+    const raw = String(r[2]||'');
+    let formIds = [];
+    try{ formIds = raw.startsWith('[') ? JSON.parse(raw) : (raw ? [raw] : []); }catch(_){ formIds = raw ? [raw] : []; }
+    let resp = []; try{ resp = JSON.parse(r[5]||'[]'); }catch(_){}
+    TOKENS_DATA.push({
+      token:String(r[0]), cc:String(r[1]||''), formIds:Array.isArray(formIds)?formIds:[],
+      fechaEnvio:String(r[3]||'').slice(0,10), estado:String(r[4]||'pendiente'),
+      formIdsRespondidos:Array.isArray(resp)?resp:[], creadoPor:String(r[6]||''),
+    });
   });
 }
 function tokensToRows(){
-  const h = ['token','cc','formId','fechaEnvio','estado'];
-  return [h, ...TOKENS_DATA.map(t => [t.token,t.cc,t.formId,t.fechaEnvio,t.estado])];
+  const h = ['token','cc','formIds','fechaEnvio','estado','formIdsRespondidos','creadoPor'];
+  return [h, ...TOKENS_DATA.map(t => [t.token,t.cc,JSON.stringify(t.formIds||[]),t.fechaEnvio,t.estado,JSON.stringify(t.formIdsRespondidos||[]),t.creadoPor||''])];
 }
 function rowsToRespuestas(rows){
   if(!rows || rows.length < 2) return;
@@ -1248,64 +1271,76 @@ function renderPerfil(){
   const cont = document.getElementById('pf-contenido');
   if(_pfTab === 'score'){ cont.innerHTML = `<div class="empty"><div class="ic">📊</div>Score clínico — próximamente</div>`; return; }
   if(_pfTab === 'plan'){ cont.innerHTML = `<div class="empty"><div class="ic">📋</div>Plan terapéutico — próximamente</div>`; return; }
-  // Formularios
+  // Formularios — selector multi (checkboxes) + un solo link + historial por sesión
   const puedeEnviar = PUEDE_ENVIAR.includes(currentUser.rol);
   const tokens = tokensDePaciente(_pfCC).sort((a,b) => (b.fechaEnvio||'').localeCompare(a.fechaEnvio||''));
+  const respDeToken = tk => new Set(RESPUESTAS_DATA.filter(r => r.token === tk).map(r => r.formId));
   cont.innerHTML = `
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--color-natural-medio);margin-bottom:10px">Enviar un formulario</div>
-    ${FORMULARIOS_CATALOGO.map(f => `
-      <div class="form-card">
-        <div class="fic">${f.icon}</div>
-        <div style="flex:1;min-width:0">
-          <div class="nm">${escapeHtml(f.nombre)}</div>
-          <div class="meta">≈ ${f.tiempo}</div>
-        </div>
-        ${puedeEnviar ? `<button class="btn btn-primary" onclick="enviarFormulario('${f.id}')">📤 Enviar</button>` : ''}
-      </div>`).join('')}
+    ${puedeEnviar ? `
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--color-natural-medio);margin-bottom:10px">Enviar formularios (un solo link)</div>
+    <div class="card" style="margin-bottom:8px;padding:14px 16px">
+      ${FORMULARIOS_CATALOGO.map(f => `
+        <label class="envio-row">
+          <input type="checkbox" class="envio-chk" value="${f.id}"/>
+          <span class="envio-ic">${f.icon}</span>
+          <span style="flex:1"><span class="nm" style="font-size:13.5px">${escapeHtml(f.nombre)}</span> <span class="meta">≈ ${f.tiempo}</span></span>
+        </label>`).join('')}
+      <button class="btn btn-primary" style="width:100%;margin-top:12px" onclick="enviarFormularios()">🔗 Generar link</button>
+    </div>` : ''}
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--color-natural-medio);margin:22px 0 10px">Historial de envíos</div>
     ${tokens.length ? tokens.map(t => {
-      const badge = t.estado==='respondido' ? `<span class="badge badge-ok">✓ Respondido</span>` : `<span class="badge badge-pend">⏳ Pendiente</span>`;
-      return `<div class="form-card" style="background:var(--color-fondo-principal)">
-        <div style="flex:1;min-width:0"><div class="nm" style="font-size:13.5px">${escapeHtml(nombreForm(t.formId))}</div><div class="meta">Enviado ${formatFecha(t.fechaEnvio)}</div></div>
-        ${badge}
-        ${t.estado!=='respondido' ? `<button class="btn btn-ghost" style="padding:7px 12px;font-size:12px" onclick="reabrirLink('${t.token}','${t.formId}')">🔗 Link</button>` : ''}
+      const resp = respDeToken(t.token);
+      const allResp = t.formIds.length > 0 && t.formIds.every(f => resp.has(f));
+      const chips = t.formIds.map(f => `<span class="badge ${resp.has(f)?'badge-ok':'badge-pend'}">${resp.has(f)?'✓':'⏳'} ${escapeHtml(chipNombre(f))}</span>`).join(' ');
+      return `<div class="form-card" style="background:var(--color-fondo-principal);flex-direction:column;align-items:stretch;gap:8px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;min-width:0"><div class="nm" style="font-size:13px">Sesión · ${formatFecha(t.fechaEnvio)}</div><div class="meta">${t.formIds.length} formulario${t.formIds.length!==1?'s':''}${t.creadoPor?` · ${escapeHtml(t.creadoPor)}`:''}</div></div>
+          ${allResp ? `<span class="badge badge-ok">✓ Completo</span>` : `<button class="btn btn-ghost" style="padding:7px 12px;font-size:12px" onclick="reabrirLink('${t.token}')">🔗 Link</button>`}
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">${chips}</div>
       </div>`;
     }).join('') : `<div class="muted" style="padding:8px 2px">Sin envíos todavía.</div>`}`;
 }
+function chipNombre(formId){ return CHIP_LABEL[formId] || nombreForm(formId); }
 
-/* ── Envío de formulario → token + link ── */
+/* ── Envío multi-formulario → un token + un link ── */
 function buildLink(token){ return `${FORM_BASE}?token=${encodeURIComponent(token)}`; }
-async function enviarFormulario(formId){
+async function enviarFormularios(){
   if(_saving) return;
   const p = PACIENTES_DATA.find(x => x.cc === _pfCC); if(!p) return;
-  const token = `${formId}-${p.cc}-${Date.now().toString(36)}`;
+  let formIds = [...document.querySelectorAll('.envio-chk:checked')].map(c => c.value);
+  if(!formIds.length){ mostrarToast('⚠️ Selecciona formularios', 'Marca al menos uno', 'amber'); return; }
+  const orden = FORMULARIOS_CATALOGO.map(f => f.id);           // orden fijo
+  formIds = formIds.sort((a,b) => orden.indexOf(a) - orden.indexOf(b));
+  const token = `${p.cc}-${Date.now().toString(36)}`;
   _saving = true;
   try{
-    TOKENS_DATA.push({ token, cc:p.cc, formId, fechaEnvio:hoy(), estado:'pendiente' });
+    TOKENS_DATA.push({ token, cc:p.cc, formIds, fechaEnvio:hoy(), estado:'pendiente', formIdsRespondidos:[], creadoPor:currentUser.nombre });
     const ok = await gasWrite('Tokens', tokensToRows());
     if(!ok) throw new Error('write falló');
-    await logAudit('Enviar formulario', `${p.tipoDoc} ${p.cc} · ${p.nombre} · ${nombreForm(formId)}`);
-    mostrarLink(token, formId, p);
+    await logAudit('Enviar formularios', `${p.tipoDoc} ${p.cc} · ${p.nombre} · ${formIds.map(nombreForm).join(', ')}`);
+    mostrarLink(token, formIds, p);
     renderPerfil();
   }catch(e){
-    // revertir RAM si falló
     const i = TOKENS_DATA.findIndex(t => t.token === token); if(i>=0) TOKENS_DATA.splice(i,1);
     mostrarToast('⚠️ Error al generar el envío', 'Intenta de nuevo', 'rojo'); console.error(e);
   }finally{ _saving = false; }
 }
-function mostrarLink(token, formId, p){
+function mostrarLink(token, formIds, p){
   const link = buildLink(token);
-  document.getElementById('ml-info').textContent = `${nombreForm(formId)} · para ${p.nombre}`;
+  const nombres = formIds.map(chipNombre).join(', ');
+  document.getElementById('ml-info').textContent = `${formIds.length} formulario${formIds.length!==1?'s':''} para ${p.nombre}: ${nombres}`;
   document.getElementById('ml-link').value = link;
-  const msg = encodeURIComponent(`Hola ${p.nombre}, por favor diligencia tu ${nombreForm(formId)} en este enlace: ${link}`);
+  const msg = encodeURIComponent(`Hola ${p.nombre}, por favor diligencia tus cuestionarios de Centro EOS en este enlace: ${link}`);
   const tel = (p.telefono||'').replace(/\D/g,'');
   const wa = document.getElementById('ml-wa');
   wa.onclick = () => window.open(`https://wa.me/${tel?('57'+tel):''}?text=${msg}`, '_blank');
   document.getElementById('modal-link').classList.add('open');
 }
-function reabrirLink(token, formId){
+function reabrirLink(token){
   const p = PACIENTES_DATA.find(x => x.cc === _pfCC); if(!p) return;
-  mostrarLink(token, formId, p);
+  const t = TOKENS_DATA.find(x => x.token === token); if(!t) return;
+  mostrarLink(token, t.formIds, p);
 }
 function copiarLink(){
   const inp = document.getElementById('ml-link'); inp.select();
@@ -1376,19 +1411,28 @@ function openResultados(cc){
   _mafCC = cc;
   document.getElementById('maf-nombre').textContent = p.nombre;
   document.getElementById('maf-sub').textContent = `${p.tipoDoc} ${p.cc}`;
-  const respFormIds = [...new Set(RESPUESTAS_DATA.filter(r => r.cc === cc).map(r => r.formId))];
-  const formsResp = FORMULARIOS_CATALOGO.filter(f => respFormIds.includes(f.id));
-  const chips = document.getElementById('res-chips');
-  if(!formsResp.length){
-    chips.innerHTML = '';
+  const respByToken = tk => new Set(RESPUESTAS_DATA.filter(r => r.token === tk).map(r => r.formId));
+  const respondidasGlobal = [...new Set(RESPUESTAS_DATA.filter(r => r.cc === cc).map(r => r.formId))];
+  const chipsEl = document.getElementById('res-chips');
+  if(!respondidasGlobal.length){
+    chipsEl.innerHTML = '';
     document.getElementById('maf-tabs').style.display = 'none';
     document.getElementById('maf-btn-hc').style.display = 'none';
     document.getElementById('maf-content').innerHTML = `<div class="empty"><div class="ic">📄</div>Este paciente aún no ha respondido formularios.</div>`;
     document.getElementById('modal-maf').classList.add('open');
     return;
   }
-  chips.innerHTML = formsResp.map(f => `<button class="res-chip" data-form="${f.id}" onclick="seleccionarResultado('${f.id}')">${f.icon} ${escapeHtml(chipLabel(f))}</button>`).join('');
-  _resForm = formsResp.some(f => f.id === 'MAF01') ? 'MAF01' : formsResp[0].id;
+  // Sesiones = tokens del paciente, ordenadas por fecha de envío (más reciente primero)
+  const tokens = TOKENS_DATA.filter(t => t.cc === cc).sort((a,b) => (b.fechaEnvio||'').localeCompare(a.fechaEnvio||''));
+  chipsEl.innerHTML = tokens.map(t => {
+    const resp = respByToken(t.token);
+    const chips = t.formIds.map(f => resp.has(f)
+      ? `<button class="res-chip" data-form="${f}" onclick="seleccionarResultado('${f}')">✓ ${escapeHtml(CHIP_LABEL[f]||f)}</button>`
+      : `<span class="res-chip pendiente">⏳ ${escapeHtml(CHIP_LABEL[f]||f)}</span>`
+    ).join('');
+    return `<div class="res-sesion"><div class="res-sesion-h">Sesión · ${formatFecha(t.fechaEnvio)}${t.creadoPor?` · ${escapeHtml(t.creadoPor)}`:''}</div><div class="res-sesion-chips">${chips}</div></div>`;
+  }).join('');
+  _resForm = respondidasGlobal.includes('MAF01') ? 'MAF01' : respondidasGlobal[0];
   marcarChip();
   renderResultado();
   document.getElementById('modal-maf').classList.add('open');

@@ -110,14 +110,22 @@ textarea.campo{min-height:120px;resize:vertical;line-height:1.5}
     <p id="err-texto">Verifica que el enlace esté completo o solicita uno nuevo en recepción.</p>
   </div>
 
-  <!-- Bienvenida -->
+  <!-- Bienvenida general (cuántos cuestionarios) -->
   <div class="full dark hide" id="scr-welcome">
     <div class="brand">Centro EOS</div>
     <h1 id="w-titulo">Bienvenido/a</h1>
     <p id="w-desc"></p>
     <div class="info-pill" id="w-tiempo"></div>
-    <p id="w-instruccion" style="font-size:14.5px"></p>
     <button class="btn-grande" onclick="empezar()">Comenzar</button>
+  </div>
+
+  <!-- Intro / transición por cuestionario -->
+  <div class="full dark hide" id="scr-intro">
+    <div class="icono" id="intro-icono" style="display:none;color:var(--esmeralda)">✅</div>
+    <div class="brand" id="intro-progreso"></div>
+    <h1 id="intro-titulo"></h1>
+    <p id="intro-instruccion"></p>
+    <button class="btn-grande" onclick="cargarFormActual()">Continuar</button>
   </div>
 
   <!-- Reanudar sesión pausada -->
@@ -155,10 +163,10 @@ textarea.campo{min-height:120px;resize:vertical;line-height:1.5}
     <button class="btn-grande" onclick="reanudar()">Continuar ahora</button>
   </div>
 
-  <!-- Confirmación -->
+  <!-- Confirmación final -->
   <div class="full light hide" id="scr-done">
     <div class="icono" style="color:var(--esmeralda)">✓</div>
-    <h1 style="font-size:25px;color:var(--esmeralda)">¡Cuestionario enviado!</h1>
+    <h1 style="font-size:25px;color:var(--esmeralda)">¡Listo! Cuestionarios enviados</h1>
     <p>Gracias por tu tiempo. Tus respuestas se enviaron a tu equipo médico de Centro EOS. Ya puedes cerrar esta página.</p>
   </div>
 </div>
@@ -420,9 +428,9 @@ function mafConstruirPreguntas(ans){
   if(ans.sexo === 'Mujer'){
     qs.push({ id:'estadoFem', seccion:'Para personalizar tu cuestionario', texto:'¿En qué etapa te encuentras actualmente?', tipo:'seleccion', etiquetas:['Menstruando','Menopausia'] });
   }
-  // PARTE I — 5 síntomas principales (texto)
+  // PARTE I — 5 síntomas y problemas de salud principales (texto)
   for(let i=1;i<=5;i++){
-    qs.push({ id:'sintoma'+i, seccion:'Tus principales preocupaciones de salud', texto: i===1 ? 'Describe tu principal síntoma o preocupación de salud' : `Otra preocupación de salud #${i} (opcional)`, tipo:'texto', opcional:i>1 });
+    qs.push({ id:'sintoma'+i, seccion:'Tus principales síntomas y problemas de salud', texto: i===1 ? 'Describe tu principal síntoma o problema de salud' : `Otro síntoma o problema de salud #${i} (opcional)`, tipo:'texto', opcional:i>1 });
   }
   // PARTE II — síntomas por categoría (filtrados por sexo/estado, deduplicados)
   let pres = MAF_PREGUNTAS.filter(p => {
@@ -448,12 +456,17 @@ function mafConstruirPreguntas(ans){
 }
 
 /* ═══════════════ ESTADO ═══════════════ */
-const S = { token:'', cc:'', formId:'', form:null, isMAF:false, preguntas:[], idx:0, answers:{}, dir:'right' };
+const ORDEN_FORMS = ['MAF01','ISI01','PSS01','YFAS01','EEQ01']; // orden fijo de presentación
+const S = {
+  token:'', cc:'', formIds:[], respondidos:[],          // sesión multi-formulario
+  formId:'', form:null, isMAF:false, preguntas:[], idx:0, answers:{}, dir:'right', // formulario actual
+};
 const TIPOS_AUTO = ['escala','likert5','likert8','seleccion']; // avance automático
+function formsPendientes(){ return ORDEN_FORMS.filter(f => S.formIds.includes(f) && !S.respondidos.includes(f)); }
 
 /* ═══════════════ INIT ═══════════════ */
 function showScreen(id){
-  ['scr-loading','scr-error','scr-welcome','scr-resume','scr-quiz','scr-paused','scr-done'].forEach(s => {
+  ['scr-loading','scr-error','scr-welcome','scr-intro','scr-resume','scr-quiz','scr-paused','scr-done'].forEach(s => {
     document.getElementById(s).classList.toggle('hide', s !== id);
   });
 }
@@ -486,34 +499,63 @@ async function init(){
   if(!rows){ mostrarError('Sin conexión', 'No pudimos validar tu enlace. Revisa tu conexión a internet e inténtalo de nuevo.'); return; }
   const fila = rows.slice(1).find(r => String(r[0]) === S.token);
   if(!fila){ mostrarError('Enlace no válido', 'No encontramos este formulario. Es posible que el enlace esté incompleto.'); return; }
-  S.cc     = String(fila[1]||'');
-  S.formId = String(fila[2]||'');
+  S.cc = String(fila[1]||'');
+  // formIds: lista (JSON) o un formId simple (token viejo)
+  const raw = String(fila[2]||'');
+  let ids = [];
+  try{ ids = raw.startsWith('[') ? JSON.parse(raw) : (raw ? [raw] : []); }catch(_){ ids = raw ? [raw] : []; }
+  S.formIds = ORDEN_FORMS.filter(f => (ids||[]).includes(f) && FORMULARIOS_DISPONIBLES[f]); // conocidos, en orden fijo
+  let resp = []; try{ resp = JSON.parse(fila[5]||'[]'); }catch(_){}
+  S.respondidos = Array.isArray(resp) ? resp.filter(f => S.formIds.includes(f)) : [];
   const estado = String(fila[4]||'pendiente');
-  if(estado === 'respondido'){ mostrarError('Ya respondido', 'Este formulario ya fue completado. ¡Gracias! Si crees que es un error, contacta a recepción.'); return; }
-
-  S.form = FORMULARIOS_DISPONIBLES[S.formId];
-  if(!S.form){ mostrarError('Formulario no disponible', 'No reconocemos el tipo de formulario solicitado.'); return; }
-  S.isMAF = S.form.tipo === 'MAF';
+  if(!S.formIds.length){ mostrarError('Formulario no disponible', 'No reconocemos los cuestionarios solicitados.'); return; }
+  if(estado === 'respondido' || !formsPendientes().length){ mostrarError('Ya respondido', 'Estos cuestionarios ya fueron completados. ¡Gracias! Si crees que es un error, contacta a recepción.'); return; }
 
   // ¿Hay progreso pausado válido?
   const saved = leerProgreso();
   if(saved){ showScreen('scr-resume'); return; }
-  mostrarWelcome();
+  mostrarWelcomeGeneral();
 }
 
-function mostrarWelcome(){
-  const b = S.form.bienvenida;
-  document.getElementById('w-titulo').textContent = b.titulo;
-  document.getElementById('w-desc').textContent = b.descripcion;
-  document.getElementById('w-tiempo').textContent = '⏱️ ' + b.tiempoEstimado;
-  document.getElementById('w-instruccion').textContent = b.instruccion;
+function mostrarWelcomeGeneral(){
+  const pend = formsPendientes();
+  document.getElementById('w-titulo').textContent = 'Bienvenido/a a Centro EOS';
+  document.getElementById('w-desc').textContent = pend.length === 1
+    ? 'Tienes 1 cuestionario para completar. Tus respuestas ayudan a tu equipo médico a conocerte mejor.'
+    : `Tienes ${pend.length} cuestionarios para completar. Se presentarán uno tras otro. Tus respuestas ayudan a tu equipo médico a conocerte mejor.`;
+  document.getElementById('w-tiempo').textContent = '📋 ' + pend.map(f => FORMULARIOS_DISPONIBLES[f].nombre).join(' · ');
   showScreen('scr-welcome');
+}
+
+/* Intro / transición antes de cada cuestionario */
+function mostrarIntro(){
+  const pend = formsPendientes();
+  if(!pend.length){ finalizarSesion(); return; }
+  const form = FORMULARIOS_DISPONIBLES[pend[0]];
+  const num = S.respondidos.length + 1, total = S.formIds.length;
+  document.getElementById('intro-icono').style.display = S.respondidos.length > 0 ? '' : 'none';
+  document.getElementById('intro-progreso').textContent = total > 1 ? `Cuestionario ${num} de ${total}` : '';
+  document.getElementById('intro-titulo').textContent = form.bienvenida.titulo;
+  document.getElementById('intro-instruccion').textContent = form.bienvenida.instruccion;
+  showScreen('scr-intro');
+}
+function cargarFormActual(){
+  const pend = formsPendientes();
+  if(!pend.length){ finalizarSesion(); return; }
+  S.formId = pend[0];
+  S.form = FORMULARIOS_DISPONIBLES[S.formId];
+  S.isMAF = S.form.tipo === 'MAF';
+  S.answers = {};
+  S.idx = 0;
+  reconstruirPreguntas();
+  showScreen('scr-quiz');
+  renderPregunta('right');
 }
 
 /* ═══════════════ PROGRESO / PAUSA (localStorage) ═══════════════ */
 function claveProgreso(){ return 'eos_progreso_' + S.token; }
 function guardarProgreso(){
-  try{ localStorage.setItem(claveProgreso(), JSON.stringify({ token:S.token, formId:S.formId, indiceActual:S.idx, respuestas:S.answers, fechaPausa:new Date().toISOString() })); }catch(_){}
+  try{ localStorage.setItem(claveProgreso(), JSON.stringify({ token:S.token, respondidos:S.respondidos, formId:S.formId, indiceActual:S.idx, respuestas:S.answers, fechaPausa:new Date().toISOString() })); }catch(_){}
 }
 function leerProgreso(){
   try{
@@ -530,33 +572,36 @@ function limpiarProgreso(){ try{ localStorage.removeItem(claveProgreso()); }catc
 function reconstruirPreguntas(){
   S.preguntas = S.isMAF ? mafConstruirPreguntas(S.answers) : S.form.preguntas.slice();
 }
-function empezar(){
-  S.answers = {}; S.idx = 0;
-  reconstruirPreguntas();
-  showScreen('scr-quiz');
-  renderPregunta('right');
-}
+function empezar(){ mostrarIntro(); }
 function reanudar(){
   const p = leerProgreso();
-  if(!p){ mostrarWelcome(); return; }
-  S.answers = p.respuestas || {};
+  if(!p){ mostrarWelcomeGeneral(); return; }
+  S.respondidos = Array.isArray(p.respondidos) ? p.respondidos.filter(f => S.formIds.includes(f)) : [];
+  const pend = formsPendientes();
+  if(!pend.length){ finalizarSesion(); return; }
+  S.formId = pend[0];
+  S.form = FORMULARIOS_DISPONIBLES[S.formId];
+  S.isMAF = S.form.tipo === 'MAF';
+  S.answers = (p.formId === S.formId && p.respuestas) ? p.respuestas : {};
   reconstruirPreguntas();
-  S.idx = Math.min(p.indiceActual || 0, S.preguntas.length - 1);
+  S.idx = (p.formId === S.formId) ? Math.min(p.indiceActual || 0, S.preguntas.length - 1) : 0;
   showScreen('scr-quiz');
   renderPregunta('right');
 }
-function empezarDeNuevo(){ limpiarProgreso(); empezar(); }
+function empezarDeNuevo(){ limpiarProgreso(); S.answers = {}; mostrarWelcomeGeneral(); }
 function pausar(){ guardarProgreso(); showScreen('scr-paused'); }
 
 /* ═══════════════ RENDER DE PREGUNTA ═══════════════ */
 function renderPregunta(dir){
   if(S.isMAF) reconstruirPreguntas(); // la lista puede cambiar tras responder sexo/estado
-  if(S.idx >= S.preguntas.length){ finalizar(); return; }
+  if(S.idx >= S.preguntas.length){ guardarFormulario(); return; }
   const q = S.preguntas[S.idx];
   const total = S.preguntas.length;
   const pct = Math.round((S.idx / total) * 100);
   document.getElementById('prog-fill').style.width = pct + '%';
-  document.getElementById('prog-txt').textContent = pct < 100 ? `${frase(pct)} — ${pct}% completado` : 'Casi listo';
+  const numForm = S.respondidos.length + 1, totForm = S.formIds.length;
+  const pref = totForm > 1 ? `Cuestionario ${numForm}/${totForm} · ` : '';
+  document.getElementById('prog-txt').textContent = pct < 100 ? `${pref}${frase(pct)} — ${pct}%` : `${pref}Casi listo`;
   document.getElementById('btn-volver').disabled = S.idx === 0;
 
   const val = S.answers[q.id];
@@ -673,44 +718,51 @@ function anterior(){
   renderPregunta('left');
 }
 
-/* ═══════════════ FINALIZAR ═══════════════ */
-async function finalizar(){
+/* ═══════════════ GUARDAR FORMULARIO ACTUAL + AVANZAR ═══════════════ */
+async function guardarFormulario(){
   showScreen('scr-loading');
   const payload = JSON.stringify(S.answers);
-  // Los POST de Apps Script se ejecutan en el servidor aunque el navegador no
-  // pueda leer la respuesta (redirect + CORS = falso negativo). Por eso NO
-  // confiamos en el retorno del append: verificamos por lectura (GET es fiable).
-  let ok = await respuestaYaGuardada(); // ¿ya estaba? (reapertura tras falso negativo)
+  // Los POST de Apps Script se ejecutan en el servidor aunque el navegador no pueda
+  // leer la respuesta (redirect + CORS = falso negativo). Verificamos por lectura.
+  let ok = await respuestaFormYaGuardada(S.formId);
   for(let intento = 0; intento < 2 && !ok; intento++){
     await gasAppend('Respuestas', [S.token, S.cc, S.formId, hoy(), payload]);
-    ok = await respuestaYaGuardada();
+    ok = await respuestaFormYaGuardada(S.formId);
   }
   if(!ok){
-    mostrarError('No pudimos enviar', 'Revisa tu conexión a internet. Tus respuestas están guardadas en este dispositivo — vuelve a abrir el enlace para reintentar.');
+    mostrarError('No pudimos enviar', 'Revisa tu conexión a internet. Tu progreso está guardado en este dispositivo — vuelve a abrir el enlace para reintentar.');
     guardarProgreso();
     return;
   }
-  await marcarTokenRespondido();
-  limpiarProgreso();
-  showScreen('scr-done');
+  if(!S.respondidos.includes(S.formId)) S.respondidos.push(S.formId);
+  const todas = formsPendientes().length === 0;
+  await actualizarTokenProgreso(todas);           // formIdsRespondidos += ; estado='respondido' solo si todas
+  if(todas){ limpiarProgreso(); finalizarSesion(); }
+  else { guardarProgreso(); mostrarIntro(); }      // transición al siguiente cuestionario
 }
-async function respuestaYaGuardada(){
+async function respuestaFormYaGuardada(formId){
   const rows = await gasRead('Respuestas');
   if(!rows) return false;
-  return rows.slice(1).some(r => String(r[0]) === S.token);
+  return rows.slice(1).some(r => String(r[0]) === S.token && String(r[2]) === formId);
 }
-async function marcarTokenRespondido(){
-  // Releer Tokens, marcar este token como respondido y reescribir.
-  // (reescritura completa — contención baja en este flujo; idéntico patrón a V11)
+async function actualizarTokenProgreso(todas){
   const rows = await gasRead('Tokens');
   if(!rows) return;
   const out = rows.map((r, i) => {
     if(i === 0) return r;
-    if(String(r[0]) === S.token){ const c = r.slice(); c[4] = 'respondido'; return c; }
-    return r;
+    if(String(r[0]) !== S.token) return r;
+    const c = r.slice();
+    while(c.length < 7) c.push('');
+    let resp = []; try{ resp = JSON.parse(c[5]||'[]'); }catch(_){}
+    if(!Array.isArray(resp)) resp = [];
+    S.respondidos.forEach(f => { if(!resp.includes(f)) resp.push(f); });
+    c[5] = JSON.stringify(resp);
+    if(todas) c[4] = 'respondido';
+    return c;
   });
   await gasWrite('Tokens', out);
 }
+function finalizarSesion(){ showScreen('scr-done'); }
 
 window.addEventListener('DOMContentLoaded', init);
 </script>
