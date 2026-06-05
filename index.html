@@ -199,7 +199,8 @@ input,select,textarea{font-family:inherit;font-size:15px}
 #perfil{margin-top:8px}
 .perfil-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;border-bottom:1.5px solid var(--color-arena);padding-bottom:14px;margin-bottom:16px}
 .perfil-nombre{font-size:20px;font-weight:800;color:var(--color-texto-base)}
-.perfil-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:18px}
+.perfil-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:4px}
+.perfil-bloque{margin-top:22px;padding-top:20px;border-top:1.5px solid var(--color-arena)}
 .stat-box{background:var(--color-fondo-secundario);border:1.5px solid var(--color-arena);border-radius:var(--radio);padding:12px;text-align:center}
 .stat-num{font-size:24px;font-weight:800;color:var(--acento-teal-medio)}
 .stat-lbl{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--color-natural-medio)}
@@ -1264,7 +1265,7 @@ function buildPerfil(cc){
   const totalEnv = fc.completados + fc.pendientes;
   const tasa = totalEnv ? Math.round(fc.completados / totalEnv * 100) : 0;
 
-  let html = `
+  const headerHTML = `
     <div class="perfil-head">
       <div style="min-width:0">
         <div class="perfil-nombre">${escapeHtml(p.nombre)}</div>
@@ -1276,42 +1277,47 @@ function buildPerfil(cc){
       </div>
     </div>`;
 
-  if(clinico){
-    html += `<div class="perfil-stats">
+  const statsHTML = clinico ? `<div class="perfil-stats">
       ${[['Enviados',totalEnv],['Respondidos',fc.completados],['Pendientes',fc.pendientes],['Tasa respuesta',tasa+'%']]
         .map(([l,v]) => `<div class="stat-box"><div class="stat-num">${v}</div><div class="stat-lbl">${l}</div></div>`).join('')}
-    </div>`;
-  }
+    </div>` : '';
 
-  if(puedeEnviar){
-    html += `<div class="perfil-sec-h">📤 Enviar nuevos formularios <span class="muted" style="font-weight:400;text-transform:none;letter-spacing:0">(un solo link)</span></div>
+  const sesionesHTML = !tokens.length
+    ? `<div class="muted" style="padding:6px 2px">Sin envíos todavía.</div>`
+    : tokens.map(t => {
+        const resp = respDeToken(t.token);
+        const allResp = t.formIds.length > 0 && t.formIds.every(f => resp.has(f));
+        const chips = t.formIds.map(f => {
+          const ok = resp.has(f);
+          if(clinico && ok) return `<button class="res-chip" onclick="verResultado('${f}')">✓ ${escapeHtml(CHIP_LABEL[f]||f)}</button>`;
+          return `<span class="res-chip ${ok?'':'pendiente'}">${ok?'✓':'⏳'} ${escapeHtml(CHIP_LABEL[f]||f)}</span>`;
+        }).join(' ');
+        return `<div class="sesion-card">
+          <div class="sesion-h"><div style="flex:1;min-width:0"><strong>${formatFecha(t.fechaEnvio)}</strong> <span class="muted">· ${t.formIds.length} form.${t.creadoPor?` · ${escapeHtml(t.creadoPor)}`:''}</span></div>
+            ${allResp ? `<span class="badge badge-ok">✓ Completo</span>` : (puedeEnviar ? `<button class="btn btn-ghost" style="padding:6px 12px;font-size:12px" onclick="reabrirLink('${t.token}')">🔗 Link</button>` : `<span class="badge badge-pend">⏳ Pendiente</span>`)}
+          </div>
+          <div class="sesion-chips">${chips}</div>
+        </div>`;
+      }).join('');
+  const respuestasHTML = `<div class="perfil-bloque">
+      <div class="perfil-sec-h">📋 ${clinico ? 'Respuestas previas (por sesión)' : 'Formularios enviados'}</div>
+      ${sesionesHTML}
+      ${clinico ? `<div id="perfil-resultado" class="hide"></div>` : ''}
+    </div>`;
+
+  const envioHTML = puedeEnviar ? `<div class="perfil-bloque">
+      <div class="perfil-sec-h">📤 Enviar nuevos formularios <span class="muted" style="font-weight:400;text-transform:none;letter-spacing:0">(un solo link)</span></div>
       <div class="card" style="padding:14px 16px">
         ${FORMULARIOS_CATALOGO.map(f => `<label class="envio-row"><input type="checkbox" class="envio-chk" value="${f.id}"/><span class="envio-ic">${f.icon}</span><span style="flex:1"><span class="nm" style="font-size:13.5px">${escapeHtml(f.nombre)}</span> <span class="meta">≈ ${f.tiempo}</span></span></label>`).join('')}
         <button class="btn btn-primary" style="width:100%;margin-top:12px" onclick="enviarFormularios()">🔗 Generar link</button>
-      </div>`;
-  }
+      </div>
+    </div>` : '';
 
-  html += `<div class="perfil-sec-h">📋 ${clinico ? 'Respuestas por fecha' : 'Formularios enviados'}</div>`;
-  if(!tokens.length){
-    html += `<div class="muted" style="padding:6px 2px">Sin envíos todavía.</div>`;
-  } else {
-    html += tokens.map(t => {
-      const resp = respDeToken(t.token);
-      const allResp = t.formIds.length > 0 && t.formIds.every(f => resp.has(f));
-      const chips = t.formIds.map(f => {
-        const ok = resp.has(f);
-        if(clinico && ok) return `<button class="res-chip" onclick="verResultado('${f}')">✓ ${escapeHtml(CHIP_LABEL[f]||f)}</button>`;
-        return `<span class="res-chip ${ok?'':'pendiente'}">${ok?'✓':'⏳'} ${escapeHtml(CHIP_LABEL[f]||f)}</span>`;
-      }).join(' ');
-      return `<div class="sesion-card">
-        <div class="sesion-h"><div style="flex:1;min-width:0"><strong>${formatFecha(t.fechaEnvio)}</strong> <span class="muted">· ${t.formIds.length} form.${t.creadoPor?` · ${escapeHtml(t.creadoPor)}`:''}</span></div>
-          ${allResp ? `<span class="badge badge-ok">✓ Completo</span>` : (puedeEnviar ? `<button class="btn btn-ghost" style="padding:6px 12px;font-size:12px" onclick="reabrirLink('${t.token}')">🔗 Link</button>` : `<span class="badge badge-pend">⏳ Pendiente</span>`)}
-        </div>
-        <div class="sesion-chips">${chips}</div>
-      </div>`;
-    }).join('');
-    if(clinico) html += `<div id="perfil-resultado" class="hide"></div>`;
-  }
+  // Orden: clínico = header + stats + respuestas + ENVÍO al final (menos frecuente).
+  //        recepción = header + ENVÍO arriba (acción principal) + estado.
+  let html = headerHTML;
+  if(clinico){ html += statsHTML + respuestasHTML + envioHTML; }
+  else { html += envioHTML + respuestasHTML; }
   cont.innerHTML = html;
 }
 
