@@ -169,9 +169,42 @@ input,select,textarea{font-family:inherit;font-size:15px}
 @keyframes pulse{50%{opacity:.4}}
 .topbar-date{font-size:12px;color:var(--color-natural-medio)}
 
-.content{padding:28px;flex:1}
-.page{display:none}
-.page.active{display:block}
+.content{max-width:920px;margin:0 auto;padding:24px 28px 80px;width:100%}
+.page{display:none}.page.active{display:block}
+/* ── Appbar (reemplaza sidebar+topbar) ── */
+.appbar{display:flex;align-items:center;gap:16px;padding:14px 28px;background:var(--color-estructura-oscura);color:#fff;position:sticky;top:0;z-index:50}
+.appbar-brand{display:flex;flex-direction:column;line-height:1.15}
+.appbar-brand .ab-b1{font-weight:800;font-size:15px;letter-spacing:.04em;text-transform:uppercase}
+.appbar-brand .ab-b2{font-weight:200;font-size:11px;color:var(--acento-teal-suave)}
+.appbar .conn{color:rgba(255,255,255,.75)}
+.ab-user{font-size:13px;font-weight:600;color:#fff;white-space:nowrap}
+.ab-user .muted{color:var(--acento-teal-suave)}
+.appbar .btn-secondary{border-color:rgba(255,255,255,.5);color:#fff}
+.appbar .btn-secondary:hover{background:rgba(255,255,255,.1)}
+.appbar .btn-ghost{border-color:rgba(255,255,255,.35);color:#fff}
+.appbar .btn-ghost:hover{background:rgba(255,255,255,.1)}
+/* ── Buscador + perfil ── */
+.buscador-row{display:flex;gap:12px;margin-bottom:18px}
+.buscador-row .input-search{flex:1;margin:0;max-width:none}
+#perfil{margin-top:8px}
+.perfil-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;border-bottom:1.5px solid var(--color-arena);padding-bottom:14px;margin-bottom:16px}
+.perfil-nombre{font-size:20px;font-weight:800;color:var(--color-texto-base)}
+.perfil-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:18px}
+.stat-box{background:var(--color-fondo-secundario);border:1.5px solid var(--color-arena);border-radius:var(--radio);padding:12px;text-align:center}
+.stat-num{font-size:24px;font-weight:800;color:var(--acento-teal-medio)}
+.stat-lbl{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--color-natural-medio)}
+.perfil-sec-h{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--color-texto-base);margin:22px 0 10px}
+.sesion-card{background:var(--color-fondo-principal);border:1.5px solid var(--color-arena);border-radius:var(--radio);padding:12px 14px;margin-bottom:10px}
+.sesion-h{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.sesion-chips{display:flex;flex-wrap:wrap;gap:8px}
+/* ── Panel de resultado inline (acordeón) ── */
+.resultado-panel{background:#fff;border:1.5px solid var(--acento-teal-medio);border-radius:var(--radio-l);padding:16px 18px;margin-top:12px}
+.resultado-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.tabs-inline{display:flex;gap:6px}
+.tab-inline{background:var(--color-fondo-secundario);border:1.5px solid var(--color-arena);border-radius:30px;padding:6px 14px;font-size:12px;font-weight:700;color:var(--color-estructura-gris)}
+.tab-inline.active{background:var(--color-estructura-oscura);border-color:var(--color-estructura-oscura);color:#fff}
+.esc-titulo{font-size:14px;font-weight:800;color:var(--color-texto-base)}
+#vista-metricas{max-width:920px;margin:0 auto;padding:8px 0 80px}
 
 /* ══════════════════════════════════════════════
    COMPONENTES
@@ -357,38 +390,26 @@ input,select,textarea{font-family:inherit;font-size:15px}
 
 <!-- ══════════ APP ══════════ -->
 <div id="app">
-  <div class="shell">
-    <aside class="sidebar" id="sidebar">
-      <div class="sb-brand">
-        <div class="b1">CENTRO EOS</div>
-        <div class="b2">Asistencial</div>
+  <header class="appbar">
+    <div class="appbar-brand"><span class="ab-b1">CENTRO EOS</span><span class="ab-b2">Asistencial</span></div>
+    <div class="spacer"></div>
+    <div class="conn"><span class="dot" id="sheets-dot"></span><span id="sheets-label">—</span></div>
+    <button class="btn btn-ghost" id="ab-metricas" style="display:none" onclick="abrirMetricasGlobales()">📊 Métricas globales</button>
+    <div class="ab-user"><span id="ab-name">—</span> · <span id="ab-role" class="muted"></span></div>
+    <button class="btn btn-secondary" onclick="doLogout()">Salir</button>
+  </header>
+  <div class="content">
+    <!-- Vista buscador + perfil del paciente -->
+    <div id="vista-principal">
+      <div class="buscador-row">
+        <input class="input-search" id="buscar-input" placeholder="🔍 Buscar paciente por nombre o documento…" oninput="buscarPacientes()" autocomplete="off"/>
+        <button class="btn btn-primary" onclick="abrirNuevoPaciente()">+ Nuevo paciente</button>
       </div>
-      <nav class="sb-nav" id="sb-nav"></nav>
-      <div class="sb-user">
-        <div class="sb-avatar" id="sb-avatar">··</div>
-        <div>
-          <div class="nm" id="sb-name">—</div>
-          <div class="rl" id="sb-role">—</div>
-          <div class="sb-logout" onclick="doLogout()">Cerrar sesión</div>
-        </div>
-      </div>
-    </aside>
-    <div class="main">
-      <header class="topbar">
-        <h1 id="topbar-title">Pacientes</h1>
-        <div class="spacer"></div>
-        <div class="search-trigger" onclick="abrirCmdK()">
-          🔍 Buscar paciente <kbd>⌘K</kbd>
-        </div>
-        <div class="conn"><span class="dot" id="sheets-dot"></span><span id="sheets-label">—</span></div>
-        <div class="topbar-date" id="topbar-date"></div>
-      </header>
-      <div class="content">
-        <div class="page" id="page-pacientes"></div>
-        <div class="page" id="page-formularios"></div>
-        <div class="page" id="page-metricas"></div>
-      </div>
+      <div id="buscar-resultados"></div>
+      <div id="perfil" class="hide"></div>
     </div>
+    <!-- Vista métricas globales (solo Médico Administrador) -->
+    <div id="vista-metricas" class="hide"></div>
   </div>
 </div>
 
@@ -419,29 +440,6 @@ input,select,textarea{font-family:inherit;font-size:15px}
   </div>
 </div>
 
-<!-- ══════════ MODAL: PERFIL DE PACIENTE ══════════ -->
-<div class="modal-overlay" id="modal-perfil">
-  <div class="modal modal-wide">
-    <div class="modal-header">
-      <h3 id="pf-nombre">Paciente</h3>
-      <button class="modal-close" onclick="closeModal('modal-perfil')">×</button>
-    </div>
-    <div class="modal-body">
-      <div class="muted" id="pf-sub" style="margin-bottom:16px"></div>
-      <div class="tabs">
-        <div class="tab active" id="pftab-formularios" onclick="cambiarTabPerfil('formularios')">Formularios</div>
-        <div class="tab" id="pftab-score" onclick="cambiarTabPerfil('score')">Score</div>
-        <div class="tab" id="pftab-plan" onclick="cambiarTabPerfil('plan')">Plan</div>
-      </div>
-      <div id="pf-contenido"></div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="editarPaciente()">✎ Editar datos</button>
-      <button class="btn btn-secondary" onclick="closeModal('modal-perfil')">Cerrar</button>
-    </div>
-  </div>
-</div>
-
 <!-- ══════════ MODAL: LINK GENERADO ══════════ -->
 <div class="modal-overlay" id="modal-link">
   <div class="modal">
@@ -460,35 +458,6 @@ input,select,textarea{font-family:inherit;font-size:15px}
     </div>
   </div>
 </div>
-
-<!-- ══════════ MODAL: MAF (vista médico/admin) ══════════ -->
-<div class="modal-overlay" id="modal-maf">
-  <div class="modal modal-wide">
-    <div class="modal-header">
-      <h3 id="maf-nombre">MAF</h3>
-      <button class="modal-close" onclick="closeModal('modal-maf')">×</button>
-    </div>
-    <div class="modal-body">
-      <div class="muted" id="maf-sub" style="margin-bottom:14px"></div>
-      <div class="res-chips" id="res-chips"></div>
-      <div class="tabs" id="maf-tabs">
-        <div class="tab active" id="maf-tab-cat" onclick="cambiarTabMAF('cat')">Resultados por categoría</div>
-        <div class="tab" id="maf-tab-evo" onclick="cambiarTabMAF('evo')" style="display:none">Evolución</div>
-      </div>
-      <div id="maf-content"></div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-primary" id="maf-btn-hc" onclick="copiarHC()">📋 Copiar para Historia Clínica</button>
-      <button class="btn btn-secondary" onclick="closeModal('modal-maf')">Cerrar</button>
-    </div>
-  </div>
-</div>
-
-<!-- Búsqueda global -->
-<div id="cmdk"><div class="cmdk-box">
-  <input type="text" id="cmdk-input" placeholder="Buscar paciente por nombre o documento…" oninput="filtrarCmdK()"/>
-  <div class="cmdk-results" id="cmdk-results"></div>
-</div></div>
 
 <!-- Toast -->
 <div id="toast"><div class="tt" id="toast-title"></div><div class="tb" id="toast-body"></div></div>
@@ -1025,9 +994,9 @@ function iniciarSyncAuto(){
   _syncTimer = setInterval(() => { if(!document.hidden && !_saving){ _autoSync = true; cargarDesdeSheets(); } }, 120000);
 }
 function refrescarVista(){
-  const b = { pacientes:buildPacientes, formularios:buildFormularios, metricas:buildMetricas }[currentPage];
-  if(b) b();
-  if(document.getElementById('modal-perfil').classList.contains('open') && _pfCC) renderPerfil();
+  if(!document.getElementById('vista-metricas').classList.contains('hide')){ renderMetricasGlobales(); return; }
+  buscarPacientes();
+  if(_pfCC) buildPerfil(_pfCC);
 }
 
 async function logAudit(accion, detalle, estado='ok'){
@@ -1092,38 +1061,55 @@ function doLogout(){
 /* ═══════════════════════════════════════════════════════════
    7. SHELL + NAV
 ═══════════════════════════════════════════════════════════ */
+// Roles que ven datos clínicos (stats, resultados, evolución). Recepción NO.
+const ROLES_CLINICOS = ['Médico','Médico Administrador','Nutricionista','Psicólogo'];
+function esClinico(){ return ROLES_CLINICOS.includes(currentUser.rol); }
+
 function setupShell(){
   const u = currentUser;
-  const ini = u.nombre.split(' ').map(w => w[0]).join('').replace(/[^A-Za-zÀ-ÿ]/g,'').slice(0,2).toUpperCase();
-  document.getElementById('sb-avatar').textContent = ini;
-  document.getElementById('sb-avatar').style.background = u.color;
-  document.getElementById('sb-name').textContent = u.nombre;
-  document.getElementById('sb-role').textContent = u.rol;
-  document.getElementById('topbar-date').textContent = fechaLarga();
-  // Médico tratante por defecto en modal paciente
+  document.getElementById('ab-name').textContent = u.nombre;
+  document.getElementById('ab-role').textContent = u.rol;
+  document.getElementById('ab-metricas').style.display = (u.rol === 'Médico Administrador') ? '' : 'none';
   document.getElementById('mp-medico').innerHTML = opcionesTratante('');
-  buildNav();
-  navigateTo((NAV_CONFIG[u.id]||['pacientes'])[0]);
+  cerrarMetricas();
+  _pfCC = null;
+  document.getElementById('perfil').classList.add('hide');
+  document.getElementById('buscar-input').value = '';
+  buscarPacientes();
 }
-function buildNav(){
-  const permitidas = NAV_CONFIG[currentUser.id] || [];
-  let html = '';
-  ['pacientes','formularios','metricas'].forEach(p => {
-    if(!permitidas.includes(p)) return;
-    const m = NAV_META[p];
-    html += `<div class="nav-item" id="nav-${p}" onclick="navigateTo('${p}')"><svg viewBox="0 0 24 24"><path d="${m.icon}"/></svg>${m.label}</div>`;
-  });
-  document.getElementById('sb-nav').innerHTML = html;
+
+/* ── Buscador de pacientes (sin lista inicial — escala a 800+ pacientes) ── */
+function buscarPacientes(){
+  const q = (document.getElementById('buscar-input').value || '').trim().toLowerCase();
+  const cont = document.getElementById('buscar-resultados');
+  if(!q){ cont.innerHTML = `<div class="empty"><div class="ic">🔍</div>Busca un paciente por nombre o documento para ver su perfil.</div>`; return; }
+  const lista = pacientesDelMedico()
+    .filter(p => p.nombre.toLowerCase().includes(q) || p.cc.includes(q))
+    .sort((a,b) => a.nombre.localeCompare(b.nombre)).slice(0, 40);
+  cont.innerHTML = lista.length ? `<div class="plist">${lista.map(p => {
+    const fc = contadorFormularios(p.cc);
+    const badges = (fc.completados+fc.pendientes) > 0
+      ? `<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0"><span class="badge badge-ok">✓ ${fc.completados}</span><span class="badge badge-pend">⏳ ${fc.pendientes}</span></div>` : '';
+    return `<div class="prow" onclick="seleccionarPaciente('${p.cc}')">
+      <div class="pav">${iniciales(p.nombre)}</div>
+      <div style="flex:1;min-width:0"><div class="nm">${escapeHtml(p.nombre)}</div><div class="meta">${p.tipoDoc} ${escapeHtml(p.cc)}${p.medicoTratante?` · ${escapeHtml(p.medicoTratante)}`:''}</div></div>
+      ${badges}
+    </div>`;
+  }).join('')}</div>` : `<div class="empty"><div class="ic">🤷</div>Sin pacientes que coincidan con "${escapeHtml(q)}".</div>`;
 }
-function navigateTo(pagina){
-  if(!NAV_CONFIG[currentUser.id]?.includes(pagina)) return;
-  document.getElementById(`page-${currentPage}`)?.classList.remove('active');
-  document.getElementById(`nav-${currentPage}`)?.classList.remove('active');
-  currentPage = pagina;
-  document.getElementById(`page-${pagina}`)?.classList.add('active');
-  document.getElementById(`nav-${pagina}`)?.classList.add('active');
-  document.getElementById('topbar-title').textContent = NAV_META[pagina]?.label || pagina;
-  ({ pacientes:buildPacientes, formularios:buildFormularios, metricas:buildMetricas }[pagina] || (()=>{}))();
+function seleccionarPaciente(cc){
+  _pfCC = cc; _mafCC = cc;
+  document.getElementById('buscar-resultados').innerHTML = '';
+  buildPerfil(cc);
+  document.getElementById('perfil').classList.remove('hide');
+  document.getElementById('perfil').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+function cerrarPerfil(){
+  _pfCC = null;
+  document.getElementById('perfil').classList.add('hide');
+  document.getElementById('perfil').innerHTML = '';
+  buscarPacientes();
+  document.getElementById('buscar-input').focus();
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1137,10 +1123,6 @@ window.addEventListener('DOMContentLoaded', () => {
     const o = document.createElement('option'); o.value = id; o.textContent = u.nombre; sel.appendChild(o);
   });
   document.addEventListener('click', e => { if(e.target.classList.contains('modal-overlay')) e.target.classList.remove('open'); });
-  document.addEventListener('keydown', e => {
-    if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); if(currentUser) abrirCmdK(); }
-    if(e.key==='Escape'){ closeModal('cmdk'); }
-  });
 });
 let _toastTimer = null;
 function mostrarToast(titulo, cuerpo='', tipo=''){
@@ -1177,42 +1159,6 @@ function contadorFormularios(cc){
 /* ═══════════════════════════════════════════════════════════
    10. MÓDULO PACIENTES
 ═══════════════════════════════════════════════════════════ */
-function buildPacientes(){
-  const cont = document.getElementById('page-pacientes');
-  const puedeCrear = PUEDE_ENVIAR.includes(currentUser.rol);
-  const q = _pacFiltro.trim().toLowerCase();
-  const visibles = pacientesDelMedico(); // médico → solo los suyos + sus unidades; resto → todos
-  const lista = visibles
-    .filter(p => !q || p.nombre.toLowerCase().includes(q) || p.cc.includes(q))
-    .sort((a,b) => a.nombre.localeCompare(b.nombre));
-
-  cont.innerHTML = `
-    <div class="section-head">
-      <h2>Pacientes</h2>
-      <span class="muted">${visibles.length} registrados</span>
-      <div class="spacer"></div>
-      ${puedeCrear ? `<button class="btn btn-primary" onclick="abrirNuevoPaciente()">+ Nuevo paciente</button>` : ''}
-    </div>
-    <input class="input-search" placeholder="Buscar por nombre o documento…" value="${escapeHtml(_pacFiltro)}" oninput="_pacFiltro=this.value;buildPacientes()" autofocus/>
-    <div class="plist">
-      ${lista.length ? lista.map(p => {
-        const fc = contadorFormularios(p.cc);
-        const tieneForms = (fc.completados + fc.pendientes) > 0;
-        return `<div class="prow" onclick="abrirPerfil('${p.cc}')">
-          <div class="pav">${iniciales(p.nombre)}</div>
-          <div style="flex:1;min-width:0">
-            <div class="nm">${escapeHtml(p.nombre)}</div>
-            <div class="meta">${p.tipoDoc} ${escapeHtml(p.cc)}${p.medicoTratante?` · ${escapeHtml(p.medicoTratante)}`:''}</div>
-          </div>
-          ${tieneForms ? `<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0">
-            <span class="badge badge-ok">✓ ${fc.completados} completado${fc.completados!==1?'s':''}</span>
-            <span class="badge badge-pend">⏳ ${fc.pendientes} pendiente${fc.pendientes!==1?'s':''}</span>
-          </div>` : ''}
-        </div>`;
-      }).join('') : `<div class="empty"><div class="ic">👥</div>${q?'Sin resultados para esa búsqueda':'Aún no hay pacientes registrados'}</div>`}
-    </div>`;
-}
-
 function abrirNuevoPaciente(){
   _editandoCC = null;
   document.getElementById('mp-titulo').textContent = 'Nuevo paciente';
@@ -1235,7 +1181,6 @@ function editarPaciente(){
   document.getElementById('mp-telefono').value = p.telefono;
   document.getElementById('mp-email').value = p.email;
   document.getElementById('mp-medico').value = p.medicoTratante;
-  closeModal('modal-perfil');
   document.getElementById('modal-paciente').classList.add('open');
 }
 async function guardarPaciente(){
@@ -1266,7 +1211,8 @@ async function guardarPaciente(){
     await logAudit(_editandoCC?'Editar paciente':'Crear paciente', `${datos.tipoDoc} ${cc} · ${nombre}`);
     closeModal('modal-paciente');
     mostrarToast('✅ Paciente guardado', nombre, 'verde');
-    buildPacientes();
+    if(_pfCC === cc) buildPerfil(cc); else if(_editandoCC) buscarPacientes();
+    if(!_editandoCC){ document.getElementById('buscar-input').value = nombre; buscarPacientes(); }
   }catch(e){
     mostrarToast('⚠️ Error al guardar', 'Intenta de nuevo', 'rojo'); console.error(e);
   }finally{
@@ -1274,54 +1220,140 @@ async function guardarPaciente(){
   }
 }
 
-/* ── Perfil unificado ── */
-function abrirPerfil(cc){
-  _pfCC = cc; _pfTab = 'formularios';
-  const p = PACIENTES_DATA.find(x => x.cc === cc); if(!p) return;
-  document.getElementById('pf-nombre').textContent = p.nombre;
-  document.getElementById('pf-sub').textContent = `${p.tipoDoc} ${p.cc}${p.telefono?` · ${p.telefono}`:''}${p.medicoTratante?` · ${p.medicoTratante}`:''}`;
-  ['formularios','score','plan'].forEach(t => document.getElementById('pftab-'+t).classList.toggle('active', t==='formularios'));
-  renderPerfil();
-  document.getElementById('modal-perfil').classList.add('open');
-}
-function cambiarTabPerfil(t){
-  _pfTab = t;
-  ['formularios','score','plan'].forEach(x => document.getElementById('pftab-'+x).classList.toggle('active', x===t));
-  renderPerfil();
-}
-function renderPerfil(){
-  const cont = document.getElementById('pf-contenido');
-  if(_pfTab === 'score'){ cont.innerHTML = `<div class="empty"><div class="ic">📊</div>Score clínico — próximamente</div>`; return; }
-  if(_pfTab === 'plan'){ cont.innerHTML = `<div class="empty"><div class="ic">📋</div>Plan terapéutico — próximamente</div>`; return; }
-  // Formularios — selector multi (checkboxes) + un solo link + historial por sesión
+/* ── Perfil del paciente (inline, según rol) ── */
+function buildPerfil(cc){
+  _pfCC = cc; _mafCC = cc; _resForm = null;
+  const p = PACIENTES_DATA.find(x => x.cc === cc);
+  const cont = document.getElementById('perfil');
+  if(!p){ cont.innerHTML = ''; return; }
   const puedeEnviar = PUEDE_ENVIAR.includes(currentUser.rol);
-  const tokens = tokensDePaciente(_pfCC).sort((a,b) => (b.fechaEnvio||'').localeCompare(a.fechaEnvio||''));
+  const clinico = esClinico();
+  const tokens = tokensDePaciente(cc).sort((a,b) => (b.fechaEnvio||'').localeCompare(a.fechaEnvio||''));
   const respDeToken = tk => new Set(RESPUESTAS_DATA.filter(r => r.token === tk).map(r => r.formId));
-  cont.innerHTML = `
-    ${puedeEnviar ? `
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--color-natural-medio);margin-bottom:10px">Enviar formularios (un solo link)</div>
-    <div class="card" style="margin-bottom:8px;padding:14px 16px">
-      ${FORMULARIOS_CATALOGO.map(f => `
-        <label class="envio-row">
-          <input type="checkbox" class="envio-chk" value="${f.id}"/>
-          <span class="envio-ic">${f.icon}</span>
-          <span style="flex:1"><span class="nm" style="font-size:13.5px">${escapeHtml(f.nombre)}</span> <span class="meta">≈ ${f.tiempo}</span></span>
-        </label>`).join('')}
-      <button class="btn btn-primary" style="width:100%;margin-top:12px" onclick="enviarFormularios()">🔗 Generar link</button>
-    </div>` : ''}
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--color-natural-medio);margin:22px 0 10px">Historial de envíos</div>
-    ${tokens.length ? tokens.map(t => {
+  const fc = contadorFormularios(cc);
+  const totalEnv = fc.completados + fc.pendientes;
+  const tasa = totalEnv ? Math.round(fc.completados / totalEnv * 100) : 0;
+
+  let html = `
+    <div class="perfil-head">
+      <div style="min-width:0">
+        <div class="perfil-nombre">${escapeHtml(p.nombre)}</div>
+        <div class="muted">${p.tipoDoc} ${escapeHtml(p.cc)}${p.telefono?` · ${escapeHtml(p.telefono)}`:''}${p.medicoTratante?` · ${escapeHtml(p.medicoTratante)}`:''}</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-shrink:0">
+        <button class="btn btn-ghost" onclick="editarPaciente()">✎ Editar</button>
+        <button class="btn btn-secondary" onclick="cerrarPerfil()">✕ Cerrar</button>
+      </div>
+    </div>`;
+
+  if(clinico){
+    html += `<div class="perfil-stats">
+      ${[['Enviados',totalEnv],['Respondidos',fc.completados],['Pendientes',fc.pendientes],['Tasa respuesta',tasa+'%']]
+        .map(([l,v]) => `<div class="stat-box"><div class="stat-num">${v}</div><div class="stat-lbl">${l}</div></div>`).join('')}
+    </div>`;
+  }
+
+  if(puedeEnviar){
+    html += `<div class="perfil-sec-h">📤 Enviar nuevos formularios <span class="muted" style="font-weight:400;text-transform:none;letter-spacing:0">(un solo link)</span></div>
+      <div class="card" style="padding:14px 16px">
+        ${FORMULARIOS_CATALOGO.map(f => `<label class="envio-row"><input type="checkbox" class="envio-chk" value="${f.id}"/><span class="envio-ic">${f.icon}</span><span style="flex:1"><span class="nm" style="font-size:13.5px">${escapeHtml(f.nombre)}</span> <span class="meta">≈ ${f.tiempo}</span></span></label>`).join('')}
+        <button class="btn btn-primary" style="width:100%;margin-top:12px" onclick="enviarFormularios()">🔗 Generar link</button>
+      </div>`;
+  }
+
+  html += `<div class="perfil-sec-h">📋 ${clinico ? 'Respuestas por fecha' : 'Formularios enviados'}</div>`;
+  if(!tokens.length){
+    html += `<div class="muted" style="padding:6px 2px">Sin envíos todavía.</div>`;
+  } else {
+    html += tokens.map(t => {
       const resp = respDeToken(t.token);
       const allResp = t.formIds.length > 0 && t.formIds.every(f => resp.has(f));
-      const chips = t.formIds.map(f => `<span class="badge ${resp.has(f)?'badge-ok':'badge-pend'}">${resp.has(f)?'✓':'⏳'} ${escapeHtml(chipNombre(f))}</span>`).join(' ');
-      return `<div class="form-card" style="background:var(--color-fondo-principal);flex-direction:column;align-items:stretch;gap:8px">
-        <div style="display:flex;align-items:center;gap:8px">
-          <div style="flex:1;min-width:0"><div class="nm" style="font-size:13px">Sesión · ${formatFecha(t.fechaEnvio)}</div><div class="meta">${t.formIds.length} formulario${t.formIds.length!==1?'s':''}${t.creadoPor?` · ${escapeHtml(t.creadoPor)}`:''}</div></div>
-          ${allResp ? `<span class="badge badge-ok">✓ Completo</span>` : `<button class="btn btn-ghost" style="padding:7px 12px;font-size:12px" onclick="reabrirLink('${t.token}')">🔗 Link</button>`}
+      const chips = t.formIds.map(f => {
+        const ok = resp.has(f);
+        if(clinico && ok) return `<button class="res-chip" onclick="verResultado('${f}')">✓ ${escapeHtml(CHIP_LABEL[f]||f)}</button>`;
+        return `<span class="res-chip ${ok?'':'pendiente'}">${ok?'✓':'⏳'} ${escapeHtml(CHIP_LABEL[f]||f)}</span>`;
+      }).join(' ');
+      return `<div class="sesion-card">
+        <div class="sesion-h"><div style="flex:1;min-width:0"><strong>${formatFecha(t.fechaEnvio)}</strong> <span class="muted">· ${t.formIds.length} form.${t.creadoPor?` · ${escapeHtml(t.creadoPor)}`:''}</span></div>
+          ${allResp ? `<span class="badge badge-ok">✓ Completo</span>` : (puedeEnviar ? `<button class="btn btn-ghost" style="padding:6px 12px;font-size:12px" onclick="reabrirLink('${t.token}')">🔗 Link</button>` : `<span class="badge badge-pend">⏳ Pendiente</span>`)}
         </div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px">${chips}</div>
+        <div class="sesion-chips">${chips}</div>
       </div>`;
-    }).join('') : `<div class="muted" style="padding:8px 2px">Sin envíos todavía.</div>`}`;
+    }).join('');
+    if(clinico) html += `<div id="perfil-resultado" class="hide"></div>`;
+  }
+  cont.innerHTML = html;
+}
+
+/* ── Resultado inline expandible (MAF tabulado / escala) ── */
+function verResultado(formId){
+  const panel = document.getElementById('perfil-resultado');
+  if(_mafEvoChart){ _mafEvoChart.destroy(); _mafEvoChart = null; }
+  if(_escEvoChart){ _escEvoChart.destroy(); _escEvoChart = null; }
+  if(_resForm === formId && !panel.classList.contains('hide')){ panel.classList.add('hide'); panel.innerHTML = ''; _resForm = null; return; }
+  _resForm = formId;
+  panel.classList.remove('hide');
+  if(formId === 'MAF01'){ _mafTab = 'cat'; panel.innerHTML = htmlMAF(); mafTab('cat'); }
+  else { panel.innerHTML = htmlEscala(formId); montarEscEvoChart(formId); }
+  panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+function htmlMAF(){
+  const tieneEvo = respuestasMAF(_mafCC).length > 1;
+  return `<div class="resultado-panel">
+    <div class="resultado-head">
+      <div class="tabs-inline">
+        <button class="tab-inline active" id="mt-cat" onclick="mafTab('cat')">Por categoría</button>
+        ${tieneEvo ? `<button class="tab-inline" id="mt-evo" onclick="mafTab('evo')">Evolución</button>` : ''}
+      </div>
+      <button class="btn btn-primary" style="padding:7px 14px;font-size:12px" onclick="copiarHCMaf()">📋 Copiar para HC</button>
+    </div>
+    <div id="maf-content"></div>
+  </div>`;
+}
+function mafTab(t){
+  _mafTab = t;
+  document.getElementById('mt-cat')?.classList.toggle('active', t === 'cat');
+  document.getElementById('mt-evo')?.classList.toggle('active', t === 'evo');
+  const c = document.getElementById('maf-content'); if(!c) return;
+  if(_mafEvoChart){ _mafEvoChart.destroy(); _mafEvoChart = null; }
+  const mafs = respuestasMAF(_mafCC);
+  if(t === 'evo' && mafs.length > 1){ c.innerHTML = htmlMAFEvolucion(mafs); montarMAFEvoChart(mafs); }
+  else { c.innerHTML = htmlMAFCategorias(mafs[mafs.length-1]); }
+}
+function htmlEscala(formId){
+  const cfg = ESCALAS[formId];
+  const resps = RESPUESTAS_DATA.filter(r => r.cc === _mafCC && r.formId === formId).sort((a,b) => (a.fechaRespuesta||'').localeCompare(b.fechaRespuesta||''));
+  if(!resps.length) return `<div class="resultado-panel"><div class="empty">Sin respuesta.</div></div>`;
+  const resp = resps[resps.length-1];
+  const r = resp.respuestas || {};
+  const res = puntuarEscala(formId, r);
+  const evol = resps.map(rr => { const e = puntuarEscala(formId, rr.respuestas || {}); return { fecha:rr.fechaRespuesta, valor:e.valor, label:e.interpretacion, color:e.color }; });
+  const filas = cfg.preguntas.map(q => {
+    const v = r[q.id];
+    let et;
+    if(q.tipo === 'siNo') et = (v === 1 ? 'Sí' : v === 0 ? 'No' : '—');
+    else et = (q.etiquetas && q.etiquetas[v] != null) ? `${q.etiquetas[v]} (${v})` : (v != null ? v : '—');
+    return `<div class="esc-fila"><span>${escapeHtml(q.texto)}</span><span class="esc-val">${et}</span></div>`;
+  }).join('');
+  const evolHTML = evol.length >= 2 ? `<div class="maf-afectadas-h" style="margin-top:18px">Evolución de este paciente</div><div style="max-width:560px"><canvas id="esc-evo"></canvas></div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${evol.map(e => `<span class="badge" style="background:${e.color};color:#fff">${formatFecha(e.fecha)}: ${e.valor} · ${e.label}</span>`).join('')}</div>` : '';
+  return `<div class="resultado-panel">
+    <div class="resultado-head"><div class="esc-titulo">${cfg.nombre}</div><button class="btn btn-primary" style="padding:7px 14px;font-size:12px" onclick="copiarHCEscala('${formId}')">📋 Copiar para HC</button></div>
+    <div class="esc-desc">${cfg.descripcion}</div>
+    <div class="esc-score" style="border-color:${res.color}"><div class="esc-score-num" style="color:${res.color}">${res.scoreLabel}</div><div class="esc-score-band" style="background:${res.color}">${res.interpretacion}</div></div>
+    ${res.alarma ? `<div class="esc-alarma">⚠️ ${res.alarma}</div>` : ''}
+    ${res.nota ? `<div class="esc-nota">ℹ️ ${res.nota}</div>` : ''}
+    ${evolHTML}
+    <div class="maf-afectadas-h" style="margin-top:18px">Respuestas (última)</div>
+    ${filas}
+    <div class="muted" style="margin-top:10px;font-size:11.5px">Respondido el ${formatFecha(resp.fechaRespuesta)}${resps.length>1 ? ` · ${resps.length} respuestas (se muestra la última)` : ''}</div>
+  </div>`;
+}
+function montarEscEvoChart(formId){
+  const resps = RESPUESTAS_DATA.filter(r => r.cc === _mafCC && r.formId === formId).sort((a,b) => (a.fechaRespuesta||'').localeCompare(b.fechaRespuesta||''));
+  if(resps.length < 2 || !window.Chart) return;
+  const evol = resps.map(rr => { const e = puntuarEscala(formId, rr.respuestas || {}); return { fecha:rr.fechaRespuesta, valor:e.valor, color:e.color }; });
+  const ec = document.getElementById('esc-evo');
+  if(ec) _escEvoChart = new Chart(ec, { type:'line', data:{ labels:evol.map(e => formatFecha(e.fecha)), datasets:[{ data:evol.map(e => e.valor), borderColor:'#00B4C8', backgroundColor:'transparent', tension:.3, pointBackgroundColor:evol.map(e => e.color), pointRadius:5 }] }, options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } } } });
 }
 function chipNombre(formId){ return CHIP_LABEL[formId] || nombreForm(formId); }
 
@@ -1342,7 +1374,7 @@ async function enviarFormularios(){
     if(!ok) throw new Error('write falló');
     await logAudit('Enviar formularios', `${p.tipoDoc} ${p.cc} · ${p.nombre} · ${formIds.map(nombreForm).join(', ')}`);
     mostrarLink(token, formIds, p);
-    renderPerfil();
+    buildPerfil(_pfCC);
   }catch(e){
     const i = TOKENS_DATA.findIndex(t => t.token === token); if(i>=0) TOKENS_DATA.splice(i,1);
     mostrarToast('⚠️ Error al generar el envío', 'Intenta de nuevo', 'rojo'); console.error(e);
@@ -1392,148 +1424,9 @@ function respuestasMAF(cc){
     .sort((a,b) => (a.fechaRespuesta||'').localeCompare(b.fechaRespuesta||''));
 }
 
-function buildFormularios(){
-  const cont = document.getElementById('page-formularios');
-  const q = _formFiltro.trim().toLowerCase();
-  const lista = pacientesDelMedico()
-    .filter(p => !q || p.nombre.toLowerCase().includes(q) || p.cc.includes(q))
-    .map(p => {
-      const resp = RESPUESTAS_DATA.filter(r => r.cc === p.cc);
-      const ult  = resp.map(r => r.fechaRespuesta).sort().slice(-1)[0] || '';
-      return { ...p, _resp: resp.length, _ult: ult };
-    })
-    .sort((a,b) => (b._resp - a._resp) || a.nombre.localeCompare(b.nombre));
-
-  cont.innerHTML = `
-    <div class="section-head">
-      <h2>Formularios</h2>
-      <span class="muted">${currentUser.rol === 'Médico' ? 'Tus pacientes' : 'Todos los pacientes'}</span>
-    </div>
-    <input class="input-search" placeholder="Buscar por nombre o documento…" value="${escapeHtml(_formFiltro)}" oninput="_formFiltro=this.value;buildFormularios()"/>
-    <div class="plist">
-      ${lista.length ? lista.map(p => `
-        <div class="prow" onclick="openResultados('${p.cc}')">
-          <div class="pav">${iniciales(p.nombre)}</div>
-          <div style="flex:1;min-width:0">
-            <div class="nm">${escapeHtml(p.nombre)}</div>
-            <div class="meta">${p.tipoDoc} ${escapeHtml(p.cc)}</div>
-          </div>
-          ${p._resp
-            ? `<span class="badge badge-ok">${p._resp} respondido${p._resp!==1?'s':''} · ${formatFecha(p._ult)}</span>`
-            : `<span class="badge" style="background:var(--color-fondo-secundario);color:var(--color-natural-medio)">Sin respuestas</span>`}
-        </div>`).join('') : `<div class="empty"><div class="ic">📄</div>${q ? 'Sin resultados' : 'No hay pacientes para mostrar'}</div>`}
-    </div>`;
-}
-
-/* ── Modal de resultados del paciente (selector por chips + escalas) ── */
 const CHIP_LABEL = { MAF01:'MAF', ISI01:'Sueño (ISI)', PSS01:'Estrés (PSS-4)', YFAS01:'Comida (mYFAS)', EEQ01:'Emocional (EEQ)' };
-function chipLabel(f){ return CHIP_LABEL[f.id] || f.nombre; }
-function openResultados(cc){
-  const p = PACIENTES_DATA.find(x => x.cc === cc); if(!p) return;
-  _mafCC = cc;
-  document.getElementById('maf-nombre').textContent = p.nombre;
-  document.getElementById('maf-sub').textContent = `${p.tipoDoc} ${p.cc}`;
-  const respByToken = tk => new Set(RESPUESTAS_DATA.filter(r => r.token === tk).map(r => r.formId));
-  const respondidasGlobal = [...new Set(RESPUESTAS_DATA.filter(r => r.cc === cc).map(r => r.formId))];
-  const chipsEl = document.getElementById('res-chips');
-  if(!respondidasGlobal.length){
-    chipsEl.innerHTML = '';
-    document.getElementById('maf-tabs').style.display = 'none';
-    document.getElementById('maf-btn-hc').style.display = 'none';
-    document.getElementById('maf-content').innerHTML = `<div class="empty"><div class="ic">📄</div>Este paciente aún no ha respondido formularios.</div>`;
-    document.getElementById('modal-maf').classList.add('open');
-    return;
-  }
-  // Sesiones = tokens del paciente, ordenadas por fecha de envío (más reciente primero)
-  const tokens = TOKENS_DATA.filter(t => t.cc === cc).sort((a,b) => (b.fechaEnvio||'').localeCompare(a.fechaEnvio||''));
-  chipsEl.innerHTML = tokens.map(t => {
-    const resp = respByToken(t.token);
-    const chips = t.formIds.map(f => resp.has(f)
-      ? `<button class="res-chip" data-form="${f}" onclick="seleccionarResultado('${f}')">✓ ${escapeHtml(CHIP_LABEL[f]||f)}</button>`
-      : `<span class="res-chip pendiente">⏳ ${escapeHtml(CHIP_LABEL[f]||f)}</span>`
-    ).join('');
-    return `<div class="res-sesion"><div class="res-sesion-h">Sesión · ${formatFecha(t.fechaEnvio)}${t.creadoPor?` · ${escapeHtml(t.creadoPor)}`:''}</div><div class="res-sesion-chips">${chips}</div></div>`;
-  }).join('');
-  _resForm = respondidasGlobal.includes('MAF01') ? 'MAF01' : respondidasGlobal[0];
-  marcarChip();
-  renderResultado();
-  document.getElementById('modal-maf').classList.add('open');
-}
-function seleccionarResultado(formId){ _resForm = formId; marcarChip(); renderResultado(); }
-function marcarChip(){
-  document.querySelectorAll('#res-chips .res-chip').forEach(b => b.classList.toggle('active', b.getAttribute('data-form') === _resForm));
-}
-function renderResultado(){
-  const esMAF = _resForm === 'MAF01';
-  if(_escEvoChart){ _escEvoChart.destroy(); _escEvoChart = null; }
-  document.getElementById('maf-tabs').style.display = esMAF ? '' : 'none';
-  document.getElementById('maf-btn-hc').style.display = ''; // botón "Copiar para HC" en MAF y en todas las escalas
-  if(esMAF){
-    _mafTab = 'cat';
-    document.getElementById('maf-tab-cat').classList.add('active');
-    document.getElementById('maf-tab-evo').classList.remove('active');
-    document.getElementById('maf-tab-evo').style.display = respuestasMAF(_mafCC).length > 1 ? '' : 'none';
-    renderMAF();
-  } else {
-    renderEscala(_resForm);
-  }
-}
-function renderEscala(formId){
-  const cfg  = ESCALAS[formId];
-  const cont = document.getElementById('maf-content');
-  const resps = RESPUESTAS_DATA.filter(r => r.cc === _mafCC && r.formId === formId).sort((a,b) => (a.fechaRespuesta||'').localeCompare(b.fechaRespuesta||''));
-  const resp = resps[resps.length-1];
-  const r = resp.respuestas || {};
-  const res = puntuarEscala(formId, r);
-  // Evolución individual: puntaje de ESTE paciente en cada respuesta a lo largo del tiempo
-  const evol = resps.map(rr => { const e = puntuarEscala(formId, rr.respuestas || {}); return { fecha:rr.fechaRespuesta, valor:e.valor, label:e.interpretacion, color:e.color }; });
-  const filas = cfg.preguntas.map(q => {
-    const v = r[q.id];
-    let etiqueta;
-    if(q.tipo === 'siNo') etiqueta = (v === 1 ? 'Sí' : v === 0 ? 'No' : '—');
-    else etiqueta = (q.etiquetas && q.etiquetas[v] != null) ? `${q.etiquetas[v]} (${v})` : (v != null ? v : '—');
-    return `<div class="esc-fila"><span>${escapeHtml(q.texto)}</span><span class="esc-val">${etiqueta}</span></div>`;
-  }).join('');
-  const evolHTML = evol.length >= 2 ? `
-    <div class="maf-afectadas-h" style="margin-top:18px">Evolución de este paciente</div>
-    <div style="max-width:560px"><canvas id="esc-evo"></canvas></div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
-      ${evol.map(e => `<span class="badge" style="background:${e.color};color:#fff">${formatFecha(e.fecha)}: ${e.valor} · ${e.label}</span>`).join('')}
-    </div>` : '';
-  cont.innerHTML = `
-    <div class="esc-desc">${cfg.descripcion}</div>
-    <div class="esc-score" style="border-color:${res.color}">
-      <div class="esc-score-num" style="color:${res.color}">${res.scoreLabel}</div>
-      <div class="esc-score-band" style="background:${res.color}">${res.interpretacion}</div>
-    </div>
-    ${res.alarma ? `<div class="esc-alarma">⚠️ ${res.alarma}</div>` : ''}
-    ${res.nota ? `<div class="esc-nota">ℹ️ ${res.nota}</div>` : ''}
-    ${evolHTML}
-    <div class="maf-afectadas-h" style="margin-top:18px">Respuestas (última)</div>
-    ${filas}
-    <div class="muted" style="margin-top:10px;font-size:11.5px">Respondido el ${formatFecha(resp.fechaRespuesta)}${resps.length>1 ? ` · ${resps.length} respuestas (se muestra la última)` : ''}</div>`;
-  if(evol.length >= 2 && window.Chart){
-    const ec = document.getElementById('esc-evo');
-    if(ec) _escEvoChart = new Chart(ec, { type:'line', data:{ labels:evol.map(e => formatFecha(e.fecha)), datasets:[{ data:evol.map(e => e.valor), borderColor:'#00B4C8', backgroundColor:'transparent', tension:.3, pointBackgroundColor:evol.map(e => e.color), pointRadius:5 }] }, options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } } } });
-  }
-}
-function cambiarTabMAF(t){
-  _mafTab = t;
-  document.getElementById('maf-tab-cat').classList.toggle('active', t === 'cat');
-  document.getElementById('maf-tab-evo').classList.toggle('active', t === 'evo');
-  document.getElementById('maf-btn-hc').style.display = (t === 'cat') ? '' : 'none';
-  renderMAF();
-}
-function renderMAF(){
-  const mafs = respuestasMAF(_mafCC);
-  const cont = document.getElementById('maf-content');
-  if(!mafs.length){ cont.innerHTML = `<div class="empty"><div class="ic">🩺</div>Este paciente aún no ha respondido el MAF.</div>`; return; }
-  if(_mafTab === 'evo' && mafs.length > 1) return renderMAFEvolucion(mafs);
-  renderMAFCategorias(mafs[mafs.length-1]); // última respuesta
-}
-
-function renderMAFCategorias(resp){
-  const cont = document.getElementById('maf-content');
+/* ── Tabulación MAF por categorías (devuelve HTML para el panel inline) ── */
+function htmlMAFCategorias(resp){
   const r = resp.respuestas || {};
   const tab = tabularMAF(r);
   const idsSig = new Set(), idsTot = new Set();
@@ -1567,7 +1460,7 @@ function renderMAFCategorias(resp){
       <span class="maf-bar-num">${c.significativas.length}</span>
     </div>`).join('');
 
-  cont.innerHTML = `
+  return `
     <div class="maf-resumen">
       <div class="maf-resumen-tot"><strong>${idsSig.size}</strong> síntomas significativos de ${idsTot.size} preguntas</div>
       <div class="maf-resumen-chips">${top.length ? top.map(c => `<span class="badge badge-revisar">Cat. ${c.categoria.numero}: ${c.significativas.length} síntoma${c.significativas.length!==1?'s':''}</span>`).join('') : '<span class="muted">Sin síntomas significativos</span>'}</div>
@@ -1576,8 +1469,8 @@ function renderMAFCategorias(resp){
     ${afect.length ? `<div class="maf-afectadas"><div class="maf-afectadas-h">Categorías más afectadas</div>${barras}</div>` : ''}`;
 }
 
-function renderMAFEvolucion(mafs){
-  const cont = document.getElementById('maf-content');
+/* ── Evolución del MAF (tabla + gráfico) — devuelve HTML; el gráfico se monta aparte ── */
+function htmlMAFEvolucion(mafs){
   const fechas = mafs.map(m => m.fechaRespuesta);
   // Solo preguntas relevantes: con valor ≥2 en alguna respuesta, o que cambiaron entre respuestas
   const ids = MAF_PREGUNTAS.map(p => p.id).filter(id => {
@@ -1595,7 +1488,7 @@ function renderMAFEvolucion(mafs){
     return `<tr><td class="evo-q">${escapeHtml(p.texto)}</td>${cels}</tr>`;
   }).join('');
 
-  cont.innerHTML = `
+  return `
     <div class="evo-tabla-wrap">
       <table class="evo-tabla">
         <thead><tr><th>Pregunta</th>${fechas.map(f => `<th>${formatFecha(f)}</th>`).join('')}</tr></thead>
@@ -1604,7 +1497,9 @@ function renderMAFEvolucion(mafs){
     </div>
     <div class="maf-afectadas-h" style="margin-top:20px">Evolución de síntomas significativos por categoría</div>
     <div style="max-width:640px"><canvas id="maf-evo-chart"></canvas></div>`;
-
+}
+function montarMAFEvoChart(mafs){
+  const fechas = mafs.map(m => m.fechaRespuesta);
   const cats = {};
   MAF_CATEGORIAS.forEach(cat => {
     const serie = mafs.map(m => {
@@ -1689,20 +1584,32 @@ function respuestasFiltradas(formId){
   if(_metMedico) rs = rs.filter(r => (pacByCC[r.cc]?.medicoTratante||'') === _metMedico);
   return rs;
 }
-function buildMetricas(){
-  document.getElementById('page-metricas').innerHTML = `
-    <div class="section-head"><h2>Métricas</h2><div class="spacer"></div></div>
+function abrirMetricasGlobales(){
+  document.getElementById('vista-principal').classList.add('hide');
+  document.getElementById('vista-metricas').classList.remove('hide');
+  renderMetricasGlobales();
+  window.scrollTo(0,0);
+}
+function cerrarMetricas(){
+  _metCharts.forEach(c => { try{ c.destroy(); }catch(_){} }); _metCharts = [];
+  document.getElementById('vista-metricas').classList.add('hide');
+  document.getElementById('vista-metricas').innerHTML = '';
+  document.getElementById('vista-principal').classList.remove('hide');
+}
+function renderMetricasGlobales(){
+  document.getElementById('vista-metricas').innerHTML = `
+    <div class="section-head"><h2>📊 Métricas globales</h2><div class="spacer"></div><button class="btn btn-secondary" onclick="cerrarMetricas()">← Volver al buscador</button></div>
     <div class="card" style="margin-bottom:16px;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end">
-      <div class="field" style="margin:0"><label>Desde</label><input type="date" value="${_metDesde}" onchange="_metDesde=this.value;buildMetricas()" style="padding:9px 12px;border:1.5px solid var(--color-arena);border-radius:var(--radio)"/></div>
-      <div class="field" style="margin:0"><label>Hasta</label><input type="date" value="${_metHasta}" onchange="_metHasta=this.value;buildMetricas()" style="padding:9px 12px;border:1.5px solid var(--color-arena);border-radius:var(--radio)"/></div>
+      <div class="field" style="margin:0"><label>Desde</label><input type="date" value="${_metDesde}" onchange="_metDesde=this.value;renderMetricasGlobales()" style="padding:9px 12px;border:1.5px solid var(--color-arena);border-radius:var(--radio)"/></div>
+      <div class="field" style="margin:0"><label>Hasta</label><input type="date" value="${_metHasta}" onchange="_metHasta=this.value;renderMetricasGlobales()" style="padding:9px 12px;border:1.5px solid var(--color-arena);border-radius:var(--radio)"/></div>
       <div class="field" style="margin:0"><label>Profesional / unidad tratante</label>
-        <select onchange="_metMedico=this.value;buildMetricas()" style="padding:9px 12px;border:1.5px solid var(--color-arena);border-radius:var(--radio)">
+        <select onchange="_metMedico=this.value;renderMetricasGlobales()" style="padding:9px 12px;border:1.5px solid var(--color-arena);border-radius:var(--radio)">
           <option value="">Todos</option>${[...MEDICOS, ...UNIDADES.map(u => u.nombre)].map(m => `<option ${_metMedico===m?'selected':''}>${m}</option>`).join('')}
         </select></div>
-      ${(_metDesde||_metHasta||_metMedico) ? `<button class="btn btn-ghost" onclick="_metDesde='';_metHasta='';_metMedico='';buildMetricas()">Limpiar filtros</button>` : ''}
+      ${(_metDesde||_metHasta||_metMedico) ? `<button class="btn btn-ghost" onclick="_metDesde='';_metHasta='';_metMedico='';renderMetricasGlobales()">Limpiar filtros</button>` : ''}
     </div>
     <div class="res-chips" style="margin-bottom:18px">
-      ${MET_CHIPS.map(c => `<button class="res-chip ${_metForm===c.id?'active':''}" onclick="_metForm='${c.id}';buildMetricas()">${c.label}</button>`).join('')}
+      ${MET_CHIPS.map(c => `<button class="res-chip ${_metForm===c.id?'active':''}" onclick="_metForm='${c.id}';renderMetricasGlobales()">${c.label}</button>`).join('')}
     </div>
     <div id="met-content"></div>`;
   _metCharts.forEach(c => { try{ c.destroy(); }catch(_){} }); _metCharts = [];
@@ -1733,6 +1640,11 @@ function renderMetricasMAF(){
     });
   });
   const motivosTop = Object.values(motivos).sort((a,b) => b.n - a.n).slice(0, 15);
+  // Distribución por médico/unidad (cuántos MAF respondidos por profesional tratante)
+  const pacByCC = Object.fromEntries(PACIENTES_DATA.map(p => [p.cc, p]));
+  const porMedico = {};
+  mafs.forEach(r => { const m = pacByCC[r.cc]?.medicoTratante || '(sin asignar)'; porMedico[m] = (porMedico[m]||0) + 1; });
+  const medTop = Object.entries(porMedico).sort((a,b) => b[1]-a[1]);
   document.getElementById('met-content').innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:20px">
       ${[['MAF respondidos', mafs.length, 'var(--acento-teal-medio)'],
@@ -1748,6 +1660,9 @@ function renderMetricasMAF(){
     </div>
     <div class="card" style="margin-top:18px"><div class="section-head"><h2>Top 10 síntomas reportados (valor ≥ 2)</h2></div>
       ${symTop.map((s,i) => `<div class="maf-bar-row"><span class="maf-bar-lbl" style="flex:0 0 24px">${i+1}.</span><span style="flex:1;font-size:13px;color:var(--color-estructura-gris)">${escapeHtml(s.texto)}</span><span class="maf-bar-num">${s.n}</span></div>`).join('')}
+    </div>
+    <div class="card" style="margin-top:18px"><div class="section-head"><h2>Distribución por médico / unidad</h2></div>
+      ${medTop.map(([m,n]) => `<div class="maf-bar-row"><span style="flex:1;font-size:13px;color:var(--color-estructura-gris)">${escapeHtml(m)}</span><span class="maf-bar-num">${n}</span></div>`).join('')}
     </div>`}`;
   if(!mafs.length || !window.Chart) return;
   const cc = document.getElementById('met-cat');
@@ -1785,27 +1700,6 @@ function renderMetricasEscala(formId){
   if(cd) _metCharts.push(new Chart(cd, { type:'bar', data:{ labels:dist.map(d => d.label), datasets:[{ data:dist.map(d => d.n), backgroundColor:dist.map(d => d.color), borderWidth:0 }] }, options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } } } }));
 }
 
-/* ═══════════════════════════════════════════════════════════
-   13. BÚSQUEDA GLOBAL (Cmd+K)
-═══════════════════════════════════════════════════════════ */
-function abrirCmdK(){
-  if(!NAV_CONFIG[currentUser.id]?.includes('pacientes')){ mostrarToast('Sin acceso', 'Tu rol no gestiona pacientes', 'amber'); return; }
-  document.getElementById('cmdk').classList.add('open');
-  const inp = document.getElementById('cmdk-input'); inp.value = ''; _cmdkSel = 0;
-  filtrarCmdK(); setTimeout(() => inp.focus(), 50);
-}
-function filtrarCmdK(){
-  const q = document.getElementById('cmdk-input').value.trim().toLowerCase();
-  const lista = pacientesDelMedico()
-    .filter(p => !q || p.nombre.toLowerCase().includes(q) || p.cc.includes(q)).slice(0, 8);
-  document.getElementById('cmdk-results').innerHTML = lista.length
-    ? lista.map(p => `<div class="cmdk-item" onclick="abrirPerfilDesdeCmdK('${p.cc}')">
-        <div class="pav" style="width:34px;height:34px;font-size:12px">${iniciales(p.nombre)}</div>
-        <div><div style="font-weight:700;color:var(--color-texto-base);font-size:14px">${escapeHtml(p.nombre)}</div><div class="meta">${p.tipoDoc} ${escapeHtml(p.cc)}</div></div>
-      </div>`).join('')
-    : `<div class="cmdk-item muted">${q?'Sin resultados':'Escribe para buscar…'}</div>`;
-}
-function abrirPerfilDesdeCmdK(cc){ closeModal('cmdk'); abrirPerfil(cc); }
 </script>
 </body>
 </html>
