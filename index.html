@@ -1366,7 +1366,7 @@ function copiarLink(){
 /* ═══════════════════════════════════════════════════════════
    11. MÓDULO FORMULARIOS — Vista del médico (médico + admin)
 ═══════════════════════════════════════════════════════════ */
-let _formFiltro = '', _mafCC = null, _mafTab = 'cat', _mafEvoChart = null, _resForm = null;
+let _formFiltro = '', _mafCC = null, _mafTab = 'cat', _mafEvoChart = null, _resForm = null, _escEvoChart = null;
 
 function pacientesDelMedico(){
   const activos = PACIENTES_DATA.filter(p => p.activo !== 'no');
@@ -1456,6 +1456,7 @@ function marcarChip(){
 }
 function renderResultado(){
   const esMAF = _resForm === 'MAF01';
+  if(_escEvoChart){ _escEvoChart.destroy(); _escEvoChart = null; }
   document.getElementById('maf-tabs').style.display = esMAF ? '' : 'none';
   document.getElementById('maf-btn-hc').style.display = ''; // botón "Copiar para HC" en MAF y en todas las escalas
   if(esMAF){
@@ -1475,6 +1476,8 @@ function renderEscala(formId){
   const resp = resps[resps.length-1];
   const r = resp.respuestas || {};
   const res = puntuarEscala(formId, r);
+  // Evolución individual: puntaje de ESTE paciente en cada respuesta a lo largo del tiempo
+  const evol = resps.map(rr => { const e = puntuarEscala(formId, rr.respuestas || {}); return { fecha:rr.fechaRespuesta, valor:e.valor, label:e.interpretacion, color:e.color }; });
   const filas = cfg.preguntas.map(q => {
     const v = r[q.id];
     let etiqueta;
@@ -1482,6 +1485,12 @@ function renderEscala(formId){
     else etiqueta = (q.etiquetas && q.etiquetas[v] != null) ? `${q.etiquetas[v]} (${v})` : (v != null ? v : '—');
     return `<div class="esc-fila"><span>${escapeHtml(q.texto)}</span><span class="esc-val">${etiqueta}</span></div>`;
   }).join('');
+  const evolHTML = evol.length >= 2 ? `
+    <div class="maf-afectadas-h" style="margin-top:18px">Evolución de este paciente</div>
+    <div style="max-width:560px"><canvas id="esc-evo"></canvas></div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
+      ${evol.map(e => `<span class="badge" style="background:${e.color};color:#fff">${formatFecha(e.fecha)}: ${e.valor} · ${e.label}</span>`).join('')}
+    </div>` : '';
   cont.innerHTML = `
     <div class="esc-desc">${cfg.descripcion}</div>
     <div class="esc-score" style="border-color:${res.color}">
@@ -1489,9 +1498,14 @@ function renderEscala(formId){
       <div class="esc-score-band" style="background:${res.color}">${res.interpretacion}</div>
     </div>
     ${res.alarma ? `<div class="esc-alarma">⚠️ ${res.alarma}</div>` : ''}
-    <div class="maf-afectadas-h" style="margin-top:18px">Respuestas</div>
+    ${evolHTML}
+    <div class="maf-afectadas-h" style="margin-top:18px">Respuestas (última)</div>
     ${filas}
     <div class="muted" style="margin-top:10px;font-size:11.5px">Respondido el ${formatFecha(resp.fechaRespuesta)}${resps.length>1 ? ` · ${resps.length} respuestas (se muestra la última)` : ''}</div>`;
+  if(evol.length >= 2 && window.Chart){
+    const ec = document.getElementById('esc-evo');
+    if(ec) _escEvoChart = new Chart(ec, { type:'line', data:{ labels:evol.map(e => formatFecha(e.fecha)), datasets:[{ data:evol.map(e => e.valor), borderColor:'#00B4C8', backgroundColor:'transparent', tension:.3, pointBackgroundColor:evol.map(e => e.color), pointRadius:5 }] }, options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } } } });
+  }
 }
 function cambiarTabMAF(t){
   _mafTab = t;
