@@ -184,8 +184,18 @@ input,select,textarea{font-family:inherit;font-size:15px}
 .appbar .btn-ghost{border-color:rgba(255,255,255,.35);color:#fff}
 .appbar .btn-ghost:hover{background:rgba(255,255,255,.1)}
 /* ── Buscador + perfil ── */
-.buscador-row{display:flex;gap:12px;margin-bottom:18px}
+.buscador-row{display:flex;gap:12px;margin-bottom:12px}
 .buscador-row .input-search{flex:1;margin:0;max-width:none}
+.lista-meta{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.lista-meta .muted{font-size:12px;flex-shrink:0}
+.az-index{display:flex;flex-wrap:wrap;gap:3px;flex:1;justify-content:flex-end}
+.az-btn{background:var(--color-fondo-secundario);border:1px solid var(--color-arena);border-radius:6px;width:24px;height:24px;font-size:11px;font-weight:700;color:var(--color-estructura-gris);padding:0}
+.az-btn:hover{background:var(--acento-teal-medio);border-color:var(--acento-teal-medio);color:#fff}
+.lista-scroll{max-height:calc(100vh - 230px);overflow-y:auto;border:1.5px solid var(--color-arena);border-radius:var(--radio);background:#fff}
+.lista-scroll .prow{border:none;border-bottom:1px solid var(--color-arena);border-radius:0;margin:0}
+.lista-scroll .prow:hover{transform:none;box-shadow:none;background:var(--color-fondo-secundario)}
+.grupo-letra:last-child .prow:last-child{border-bottom:none}
+.letra-h{position:sticky;top:0;background:var(--color-estructura-oscura);color:#fff;font-weight:800;font-size:12px;padding:5px 16px;letter-spacing:.05em;z-index:1}
 #perfil{margin-top:8px}
 .perfil-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;border-bottom:1.5px solid var(--color-arena);padding-bottom:14px;margin-bottom:16px}
 .perfil-nombre{font-size:20px;font-weight:800;color:var(--color-texto-base)}
@@ -401,11 +411,14 @@ input,select,textarea{font-family:inherit;font-size:15px}
   <div class="content">
     <!-- Vista buscador + perfil del paciente -->
     <div id="vista-principal">
-      <div class="buscador-row">
-        <input class="input-search" id="buscar-input" placeholder="🔍 Buscar paciente por nombre o documento…" oninput="buscarPacientes()" autocomplete="off"/>
-        <button class="btn btn-primary" onclick="abrirNuevoPaciente()">+ Nuevo paciente</button>
+      <div id="vista-lista">
+        <div class="buscador-row">
+          <input class="input-search" id="buscar-input" placeholder="🔍 Buscar por nombre o documento…" oninput="buscarPacientes()" autocomplete="off"/>
+          <button class="btn btn-primary" onclick="abrirNuevoPaciente()">+ Nuevo paciente</button>
+        </div>
+        <div class="lista-meta"><span class="muted" id="lista-count"></span><div id="az-index" class="az-index"></div></div>
+        <div id="buscar-resultados" class="lista-scroll"></div>
       </div>
-      <div id="buscar-resultados"></div>
       <div id="perfil" class="hide"></div>
     </div>
     <!-- Vista métricas globales (solo Médico Administrador) -->
@@ -1074,40 +1087,57 @@ function setupShell(){
   cerrarMetricas();
   _pfCC = null;
   document.getElementById('perfil').classList.add('hide');
+  document.getElementById('vista-lista').classList.remove('hide');
   document.getElementById('buscar-input').value = '';
   buscarPacientes();
 }
 
-/* ── Buscador de pacientes (sin lista inicial — escala a 800+ pacientes) ── */
+/* ── Buscador + lista A-Z (caja de búsqueda + listado navegable) ── */
+function letraInicial(nombre){
+  const c = (nombre||'').trim().charAt(0).toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  return /[A-Z]/.test(c) ? c : '#';
+}
+function filaPaciente(p){
+  const fc = contadorFormularios(p.cc);
+  const badges = (fc.completados+fc.pendientes) > 0
+    ? `<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0"><span class="badge badge-ok">✓ ${fc.completados}</span><span class="badge badge-pend">⏳ ${fc.pendientes}</span></div>` : '';
+  return `<div class="prow" onclick="seleccionarPaciente('${p.cc}')">
+    <div class="pav">${iniciales(p.nombre)}</div>
+    <div style="flex:1;min-width:0"><div class="nm">${escapeHtml(p.nombre)}</div><div class="meta">${p.tipoDoc} ${escapeHtml(p.cc)}${p.medicoTratante?` · ${escapeHtml(p.medicoTratante)}`:''}</div></div>
+    ${badges}</div>`;
+}
 function buscarPacientes(){
   const q = (document.getElementById('buscar-input').value || '').trim().toLowerCase();
   const cont = document.getElementById('buscar-resultados');
-  if(!q){ cont.innerHTML = `<div class="empty"><div class="ic">🔍</div>Busca un paciente por nombre o documento para ver su perfil.</div>`; return; }
+  const az = document.getElementById('az-index');
   const lista = pacientesDelMedico()
-    .filter(p => p.nombre.toLowerCase().includes(q) || p.cc.includes(q))
-    .sort((a,b) => a.nombre.localeCompare(b.nombre)).slice(0, 40);
-  cont.innerHTML = lista.length ? `<div class="plist">${lista.map(p => {
-    const fc = contadorFormularios(p.cc);
-    const badges = (fc.completados+fc.pendientes) > 0
-      ? `<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0"><span class="badge badge-ok">✓ ${fc.completados}</span><span class="badge badge-pend">⏳ ${fc.pendientes}</span></div>` : '';
-    return `<div class="prow" onclick="seleccionarPaciente('${p.cc}')">
-      <div class="pav">${iniciales(p.nombre)}</div>
-      <div style="flex:1;min-width:0"><div class="nm">${escapeHtml(p.nombre)}</div><div class="meta">${p.tipoDoc} ${escapeHtml(p.cc)}${p.medicoTratante?` · ${escapeHtml(p.medicoTratante)}`:''}</div></div>
-      ${badges}
-    </div>`;
-  }).join('')}</div>` : `<div class="empty"><div class="ic">🤷</div>Sin pacientes que coincidan con "${escapeHtml(q)}".</div>`;
+    .filter(p => !q || p.nombre.toLowerCase().includes(q) || p.cc.includes(q))
+    .sort((a,b) => a.nombre.localeCompare(b.nombre, 'es'));
+  document.getElementById('lista-count').textContent = `${lista.length} paciente${lista.length!==1?'s':''}${q?' (filtrado)':''}`;
+  if(!lista.length){
+    cont.innerHTML = `<div class="empty"><div class="ic">🔍</div>${q ? 'Sin pacientes que coincidan.' : 'No hay pacientes para mostrar.'}</div>`;
+    az.innerHTML = ''; return;
+  }
+  // Agrupar por letra inicial (con encabezados pegajosos)
+  const grupos = {};
+  lista.forEach(p => { const L = letraInicial(p.nombre); (grupos[L] = grupos[L] || []).push(p); });
+  const letras = Object.keys(grupos).sort();
+  cont.innerHTML = letras.map(L => `<div class="grupo-letra" id="grp-${L}"><div class="letra-h">${L}</div>${grupos[L].map(filaPaciente).join('')}</div>`).join('');
+  az.innerHTML = letras.map(L => `<button class="az-btn" onclick="saltarLetra('${L}')">${L}</button>`).join('');
 }
+function saltarLetra(L){ document.getElementById('grp-'+L)?.scrollIntoView({ behavior:'smooth', block:'start' }); }
 function seleccionarPaciente(cc){
   _pfCC = cc; _mafCC = cc;
-  document.getElementById('buscar-resultados').innerHTML = '';
+  document.getElementById('vista-lista').classList.add('hide');
   buildPerfil(cc);
   document.getElementById('perfil').classList.remove('hide');
-  document.getElementById('perfil').scrollIntoView({ behavior:'smooth', block:'start' });
+  window.scrollTo(0, 0);
 }
 function cerrarPerfil(){
   _pfCC = null;
   document.getElementById('perfil').classList.add('hide');
   document.getElementById('perfil').innerHTML = '';
+  document.getElementById('vista-lista').classList.remove('hide');
   buscarPacientes();
   document.getElementById('buscar-input').focus();
 }
