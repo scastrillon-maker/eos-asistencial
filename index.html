@@ -197,14 +197,26 @@ input,select,textarea{font-family:inherit;font-size:15px}
 .grupo-letra:last-child .prow:last-child{border-bottom:none}
 .letra-h{position:sticky;top:0;background:var(--color-estructura-oscura);color:#fff;font-weight:800;font-size:12px;padding:5px 16px;letter-spacing:.05em;z-index:1}
 #perfil{margin-top:8px}
-.perfil-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;border-bottom:1.5px solid var(--color-arena);padding-bottom:14px;margin-bottom:16px}
-.perfil-nombre{font-size:20px;font-weight:800;color:var(--color-texto-base)}
-.perfil-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:4px}
-.perfil-bloque{margin-top:22px;padding-top:20px;border-top:1.5px solid var(--color-arena)}
+.perfil-hero{background:#fff;border:1.5px solid var(--color-arena);border-radius:var(--radio);box-shadow:0 1px 3px rgba(0,0,0,.05);padding:18px 20px}
+.perfil-hero-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+.btn-back{background:transparent;border:none;color:var(--acento-teal-medio);font-weight:700;font-size:13px;cursor:pointer;padding:4px 0;display:inline-flex;align-items:center;gap:6px;font-family:inherit}
+.btn-back:hover{color:var(--color-estructura-media)}
+.perfil-nombre{font-size:21px;font-weight:800;color:var(--color-texto-base);line-height:1.15}
+.perfil-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:12px;margin-top:16px}
+.perfil-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0 0}
+.perfil-tab{display:inline-flex;align-items:center;gap:7px;padding:10px 18px;border:1.5px solid var(--color-arena);border-radius:30px;background:#fff;color:var(--color-natural-medio);font-weight:700;font-size:13px;cursor:pointer;font-family:inherit}
+.perfil-tab:hover:not(.soon):not(.active){border-color:var(--acento-teal-medio);color:var(--acento-teal-medio)}
+.perfil-tab.active{background:var(--acento-primario);border-color:var(--acento-primario);color:#fff}
+.perfil-tab.soon{opacity:.5;cursor:default}
+.perfil-tab .soon-tag{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;background:var(--color-arena);color:#fff;padding:1px 6px;border-radius:8px}
+.perfil-panel{background:#fff;border:1.5px solid var(--color-arena);border-radius:var(--radio);box-shadow:0 1px 3px rgba(0,0,0,.05);padding:18px 20px;margin-top:14px}
+.perfil-soon{text-align:center;padding:42px 20px;color:var(--color-natural-medio)}
+.perfil-soon-ic{font-size:42px;margin-bottom:10px;opacity:.45}
+.perfil-soon-t{font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--color-texto-base);font-size:14px;margin-bottom:6px}
 .stat-box{background:var(--color-fondo-secundario);border:1.5px solid var(--color-arena);border-radius:var(--radio);padding:12px;text-align:center}
 .stat-num{font-size:24px;font-weight:800;color:var(--acento-teal-medio)}
 .stat-lbl{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--color-natural-medio)}
-.perfil-sec-h{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--color-texto-base);margin:22px 0 10px}
+.perfil-sec-h{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--color-texto-base);margin:0 0 12px}
 .sesion-card{background:var(--color-fondo-principal);border:1.5px solid var(--color-arena);border-radius:var(--radio);padding:12px 14px;margin-bottom:10px}
 .sesion-h{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .sesion-chips{display:flex;flex-wrap:wrap;gap:8px}
@@ -1128,7 +1140,7 @@ function buscarPacientes(){
 }
 function saltarLetra(L){ document.getElementById('grp-'+L)?.scrollIntoView({ behavior:'smooth', block:'start' }); }
 function seleccionarPaciente(cc){
-  _pfCC = cc; _mafCC = cc;
+  _pfCC = cc; _mafCC = cc; _pfSeccion = null;
   document.getElementById('vista-lista').classList.add('hide');
   buildPerfil(cc);
   document.getElementById('perfil').classList.remove('hide');
@@ -1252,6 +1264,25 @@ async function guardarPaciente(){
 }
 
 /* ── Perfil del paciente (inline, según rol) ── */
+/* ── Perfil del paciente: caja-resumen + pestañas navegables ──
+   Las secciones se definen en un arreglo, así Score/Planeador (hoy
+   "Próximamente") se activan con solo cambiar soon:true → false. */
+let _pfSeccion = null;
+
+function seccionesPerfil(clinico, puedeEnviar){
+  if(clinico){
+    const s = [{ id:'resultados', label:'Resultados', icon:'📋', soon:false }];
+    if(puedeEnviar) s.push({ id:'enviar', label:'Enviar', icon:'📤', soon:false });
+    s.push({ id:'score',     label:'Score',     icon:'📊', soon:true });
+    s.push({ id:'planeador', label:'Planeador', icon:'🗓', soon:true });
+    return s;
+  }
+  return [
+    { id:'enviar',     label:'Enviar', icon:'📤', soon:false },
+    { id:'resultados', label:'Estado', icon:'📋', soon:false }
+  ];
+}
+
 function buildPerfil(cc){
   _pfCC = cc; _mafCC = cc; _resForm = null;
   const p = PACIENTES_DATA.find(x => x.cc === cc);
@@ -1259,30 +1290,61 @@ function buildPerfil(cc){
   if(!p){ cont.innerHTML = ''; return; }
   const puedeEnviar = PUEDE_ENVIAR.includes(currentUser.rol);
   const clinico = esClinico();
-  const tokens = tokensDePaciente(cc).sort((a,b) => (b.fechaEnvio||'').localeCompare(a.fechaEnvio||''));
-  const respDeToken = tk => new Set(RESPUESTAS_DATA.filter(r => r.token === tk).map(r => r.formId));
   const fc = contadorFormularios(cc);
   const totalEnv = fc.completados + fc.pendientes;
-  const tasa = totalEnv ? Math.round(fc.completados / totalEnv * 100) : 0;
 
-  const headerHTML = `
-    <div class="perfil-head">
-      <div style="min-width:0">
-        <div class="perfil-nombre">${escapeHtml(p.nombre)}</div>
-        <div class="muted">${p.tipoDoc} ${escapeHtml(p.cc)}${p.telefono?` · ${escapeHtml(p.telefono)}`:''}${p.medicoTratante?` · ${escapeHtml(p.medicoTratante)}`:''}</div>
-      </div>
-      <div style="display:flex;gap:8px;flex-shrink:0">
+  const secs = seccionesPerfil(clinico, puedeEnviar);
+  if(!_pfSeccion || !secs.some(s => s.id === _pfSeccion && !s.soon)){
+    _pfSeccion = clinico ? 'resultados' : 'enviar';
+  }
+
+  // Datos del paciente (a futuro: Score y Planeador se llenan aquí)
+  const stats = clinico
+    ? [['Enviados',totalEnv],['Llenos',fc.completados],['Score','—'],['Planeador','—']]
+    : [['Enviados',totalEnv],['Llenos',fc.completados]];
+  const heroStats = stats.map(([l,v]) =>
+    `<div class="stat-box"><div class="stat-num">${v}</div><div class="stat-lbl">${l}</div></div>`).join('');
+
+  const tabs = secs.map(s => {
+    const cls = 'perfil-tab' + (s.id === _pfSeccion ? ' active' : '') + (s.soon ? ' soon' : '');
+    const act = s.soon ? ' disabled' : ` onclick="irSeccionPerfil('${s.id}')"`;
+    const tag = s.soon ? '<span class="soon-tag">Próx.</span>' : '';
+    return `<button class="${cls}"${act}>${s.icon} ${s.label}${tag}</button>`;
+  }).join('');
+
+  cont.innerHTML = `
+    <div class="perfil-hero">
+      <div class="perfil-hero-top">
+        <button class="btn-back" onclick="cerrarPerfil()">← Volver al listado</button>
         <button class="btn btn-ghost" onclick="editarPaciente()">✎ Editar</button>
-        <button class="btn btn-secondary" onclick="cerrarPerfil()">✕ Cerrar</button>
       </div>
-    </div>`;
+      <div class="perfil-nombre">${escapeHtml(p.nombre)}</div>
+      <div class="muted">${p.tipoDoc} ${escapeHtml(p.cc)}${p.telefono?` · ${escapeHtml(p.telefono)}`:''}${p.medicoTratante?` · ${escapeHtml(p.medicoTratante)}`:''}</div>
+      <div class="perfil-stats">${heroStats}</div>
+    </div>
+    <div class="perfil-tabs">${tabs}</div>
+    <div id="perfil-body" class="perfil-panel"></div>`;
 
-  const statsHTML = clinico ? `<div class="perfil-stats">
-      ${[['Enviados',totalEnv],['Respondidos',fc.completados],['Pendientes',fc.pendientes],['Tasa respuesta',tasa+'%']]
-        .map(([l,v]) => `<div class="stat-box"><div class="stat-num">${v}</div><div class="stat-lbl">${l}</div></div>`).join('')}
-    </div>` : '';
+  renderPerfilBody(cc);
+}
 
-  const sesionesHTML = !tokens.length
+function irSeccionPerfil(id){ _pfSeccion = id; buildPerfil(_pfCC); }
+
+function renderPerfilBody(cc){
+  const body = document.getElementById('perfil-body');
+  if(!body) return;
+  if(_pfSeccion === 'enviar'){ body.innerHTML = panelEnviar(); return; }
+  if(_pfSeccion === 'score'){ body.innerHTML = panelProximamente('Score','📊','Aquí verás el score clínico consolidado del paciente, calculado a partir de sus formularios.'); return; }
+  if(_pfSeccion === 'planeador'){ body.innerHTML = panelProximamente('Planeador','🗓','Aquí podrás planear el seguimiento, las citas y los próximos formularios del paciente.'); return; }
+  body.innerHTML = panelResultados(cc);
+}
+
+function panelResultados(cc){
+  const clinico = esClinico();
+  const puedeEnviar = PUEDE_ENVIAR.includes(currentUser.rol);
+  const tokens = tokensDePaciente(cc).sort((a,b) => (b.fechaEnvio||'').localeCompare(a.fechaEnvio||''));
+  const respDeToken = tk => new Set(RESPUESTAS_DATA.filter(r => r.token === tk).map(r => r.formId));
+  const sesiones = !tokens.length
     ? `<div class="muted" style="padding:6px 2px">Sin envíos todavía.</div>`
     : tokens.map(t => {
         const resp = respDeToken(t.token);
@@ -1299,26 +1361,23 @@ function buildPerfil(cc){
           <div class="sesion-chips">${chips}</div>
         </div>`;
       }).join('');
-  const respuestasHTML = `<div class="perfil-bloque">
-      <div class="perfil-sec-h">📋 ${clinico ? 'Respuestas previas (por sesión)' : 'Formularios enviados'}</div>
-      ${sesionesHTML}
-      ${clinico ? `<div id="perfil-resultado" class="hide"></div>` : ''}
-    </div>`;
+  return `<div class="perfil-sec-h">📋 ${clinico ? 'Formularios respondidos' : 'Estado de formularios'}</div>
+    ${sesiones}
+    ${clinico ? `<div id="perfil-resultado" class="hide"></div>` : ''}`;
+}
 
-  const envioHTML = puedeEnviar ? `<div class="perfil-bloque">
-      <div class="perfil-sec-h">📤 Enviar nuevos formularios <span class="muted" style="font-weight:400;text-transform:none;letter-spacing:0">(un solo link)</span></div>
-      <div class="card" style="padding:14px 16px">
-        ${FORMULARIOS_CATALOGO.map(f => `<label class="envio-row"><input type="checkbox" class="envio-chk" value="${f.id}"/><span class="envio-ic">${f.icon}</span><span style="flex:1"><span class="nm" style="font-size:13.5px">${escapeHtml(f.nombre)}</span> <span class="meta">≈ ${f.tiempo}</span></span></label>`).join('')}
-        <button class="btn btn-primary" style="width:100%;margin-top:12px" onclick="enviarFormularios()">🔗 Generar link</button>
-      </div>
-    </div>` : '';
+function panelEnviar(){
+  return `<div class="perfil-sec-h">📤 Enviar nuevos formularios <span class="muted" style="font-weight:400;text-transform:none;letter-spacing:0">(un solo link)</span></div>
+    ${FORMULARIOS_CATALOGO.map(f => `<label class="envio-row"><input type="checkbox" class="envio-chk" value="${f.id}"/><span class="envio-ic">${f.icon}</span><span style="flex:1"><span class="nm" style="font-size:13.5px">${escapeHtml(f.nombre)}</span> <span class="meta">≈ ${f.tiempo}</span></span></label>`).join('')}
+    <button class="btn btn-primary" style="width:100%;margin-top:12px" onclick="enviarFormularios()">🔗 Generar link</button>`;
+}
 
-  // Orden: clínico = header + stats + respuestas + ENVÍO al final (menos frecuente).
-  //        recepción = header + ENVÍO arriba (acción principal) + estado.
-  let html = headerHTML;
-  if(clinico){ html += statsHTML + respuestasHTML + envioHTML; }
-  else { html += envioHTML + respuestasHTML; }
-  cont.innerHTML = html;
+function panelProximamente(titulo, icon, desc){
+  return `<div class="perfil-soon">
+    <div class="perfil-soon-ic">${icon}</div>
+    <div class="perfil-soon-t">${titulo} · Próximamente</div>
+    <div class="muted" style="max-width:380px;margin:0 auto">${desc}</div>
+  </div>`;
 }
 
 /* ── Resultado inline expandible (MAF tabulado / escala) ── */
