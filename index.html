@@ -1686,35 +1686,40 @@ function buildMetricas(){
 
 function renderMetricasMAF(){
   const mafs = respuestasFiltradas('MAF01');
-  const tok = TOKENS_DATA.filter(t => t.formId === 'MAF01');
+  const tok = TOKENS_DATA.filter(t => (t.formIds||[]).includes('MAF01'));
   const enviados = tok.length, respondidos = tok.filter(t => t.estado === 'respondido').length;
   const tasa = enviados ? Math.round(respondidos / enviados * 100) : 0;
   const catSig = {}; MAF_CATEGORIAS.forEach(c => catSig[c.numero] = 0);
-  const symCount = {}, porMes = {};
+  const symCount = {};
   mafs.forEach(r => {
     const tab = tabularMAF(r.respuestas || {});
-    const idsSig = new Set();
-    tab.forEach(c => { catSig[c.categoria.numero] += c.significativas.length; c.significativas.forEach(s => { idsSig.add(s.id); symCount[s.id] = (symCount[s.id]||0) + 1; }); });
-    const mes = (r.fechaRespuesta||'').slice(0,7);
-    if(mes){ (porMes[mes] = porMes[mes] || []).push(idsSig.size); }
+    tab.forEach(c => { catSig[c.categoria.numero] += c.significativas.length; c.significativas.forEach(s => { symCount[s.id] = (symCount[s.id]||0) + 1; }); });
   });
   const catTop = Object.entries(catSig).filter(([,v]) => v > 0).sort((a,b) => b[1]-a[1]).slice(0,10);
   const symTop = Object.entries(symCount).sort((a,b) => b[1]-a[1]).slice(0,10)
     .map(([id,n]) => ({ texto:(MAF_PREGUNTAS.find(p => p.id === id)||{}).texto || id, n }));
-  const meses = Object.keys(porMes).sort();
-  const promMes = meses.map(m => Math.round(porMes[m].reduce((a,b) => a+b, 0) / porMes[m].length * 10) / 10);
+  // Motivos de consulta (campos abiertos sintoma1..5 del MAF) — agrupados por texto para mercadeo
+  const motivos = {};
+  mafs.forEach(r => {
+    const a = r.respuestas || {};
+    ['sintoma1','sintoma2','sintoma3','sintoma4','sintoma5'].forEach(k => {
+      const v = String(a[k]||'').trim();
+      if(v){ const key = v.toLowerCase(); (motivos[key] = motivos[key] || {texto:v, n:0}).n++; }
+    });
+  });
+  const motivosTop = Object.values(motivos).sort((a,b) => b.n - a.n).slice(0, 15);
   document.getElementById('met-content').innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:20px">
       ${[['MAF respondidos', mafs.length, 'var(--acento-teal-medio)'],
          ['Enviados', enviados, 'var(--acento-primario)'],
          ['Tasa de respuesta', tasa + '%', 'var(--color-natural-acento)'],
-         ['Síntomas sign. (prom.)', mafs.length ? Math.round(Object.values(catSig).reduce((a,b)=>a+b,0)/mafs.length) : 0, 'var(--acento-holistico)']]
+         ['Síntomas signif. (prom. por MAF)', mafs.length ? Math.round(Object.values(catSig).reduce((a,b)=>a+b,0)/mafs.length) : 0, 'var(--acento-holistico)']]
         .map(([l,v,c]) => `<div class="card" style="text-align:center"><div style="font-size:32px;font-weight:800;color:${c}">${v}</div><div class="muted" style="text-transform:uppercase;letter-spacing:.05em;font-size:10.5px;font-weight:700">${l}</div></div>`).join('')}
     </div>
     ${mafs.length === 0 ? `<div class="card"><div class="empty"><div class="ic">📊</div>No hay respuestas de MAF para los filtros seleccionados.</div></div>` : `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px" class="met-grid">
-      <div class="card"><div class="section-head"><h2>Categorías más afectadas</h2></div><canvas id="met-cat"></canvas></div>
-      <div class="card"><div class="section-head"><h2>Evolución poblacional (prom. síntomas/mes)</h2></div><canvas id="met-evo"></canvas></div>
+    <div class="card"><div class="section-head"><h2>Categorías más afectadas (población)</h2></div><canvas id="met-cat"></canvas></div>
+    <div class="card" style="margin-top:18px"><div class="section-head"><h2>Motivos de consulta más frecuentes</h2><div class="spacer"></div><span class="muted" style="font-size:11px">campos abiertos del MAF</span></div>
+      ${motivosTop.length ? motivosTop.map((m,i) => `<div class="maf-bar-row"><span class="maf-bar-lbl" style="flex:0 0 24px">${i+1}.</span><span style="flex:1;font-size:13px;color:var(--color-estructura-gris)">${escapeHtml(m.texto)}</span><span class="maf-bar-num">${m.n}</span></div>`).join('') : `<div class="muted" style="padding:6px 2px">Aún no hay motivos de consulta registrados.</div>`}
     </div>
     <div class="card" style="margin-top:18px"><div class="section-head"><h2>Top 10 síntomas reportados (valor ≥ 2)</h2></div>
       ${symTop.map((s,i) => `<div class="maf-bar-row"><span class="maf-bar-lbl" style="flex:0 0 24px">${i+1}.</span><span style="flex:1;font-size:13px;color:var(--color-estructura-gris)">${escapeHtml(s.texto)}</span><span class="maf-bar-num">${s.n}</span></div>`).join('')}
@@ -1722,14 +1727,12 @@ function renderMetricasMAF(){
   if(!mafs.length || !window.Chart) return;
   const cc = document.getElementById('met-cat');
   if(cc) _metCharts.push(new Chart(cc, { type:'bar', data:{ labels:catTop.map(([n]) => 'Cat. '+n), datasets:[{ data:catTop.map(([,v]) => v), backgroundColor:'#3A8FA0', borderWidth:0 }] }, options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } } } }));
-  const ce = document.getElementById('met-evo');
-  if(ce) _metCharts.push(new Chart(ce, { type:'line', data:{ labels:meses, datasets:[{ data:promMes, borderColor:'#00B4C8', backgroundColor:'transparent', tension:.3 }] }, options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } } } }));
 }
 
 function renderMetricasEscala(formId){
   const cfg = ESCALAS[formId];
   const rs  = respuestasFiltradas(formId);
-  const tok = TOKENS_DATA.filter(t => t.formId === formId);
+  const tok = TOKENS_DATA.filter(t => (t.formIds||[]).includes(formId));
   const enviados = tok.length, respondidos = tok.filter(t => t.estado === 'respondido').length;
   const tasa = enviados ? Math.round(respondidos / enviados * 100) : 0;
   const evals = rs.map(r => puntuarEscala(formId, r.respuestas || {}));
@@ -1740,10 +1743,6 @@ function renderMetricasEscala(formId){
   const esYfas = cfg.tabulacion === 'yfas';
   const promLabel = n ? (esYfas ? `${prom} sínt.` : `${prom}/${cfg.maxScore}`) : '—';
   const dist = cfg.interpretacion.map(b => ({ label:b.label, color:b.color, n: evals.filter(e => e.interpretacion === b.label).length }));
-  const porMes = {};
-  rs.forEach((r,i) => { const m = (r.fechaRespuesta||'').slice(0,7); if(m){ (porMes[m] = porMes[m] || []).push(evals[i].valor); } });
-  const meses = Object.keys(porMes).sort();
-  const promMes = meses.map(m => Math.round(porMes[m].reduce((a,b) => a+b, 0) / porMes[m].length * 10) / 10);
 
   document.getElementById('met-content').innerHTML = `
     <div class="esc-desc">${cfg.descripcion}</div>
@@ -1755,15 +1754,10 @@ function renderMetricasEscala(formId){
         .map(([l,v,c]) => `<div class="card" style="text-align:center"><div style="font-size:30px;font-weight:800;color:${c}">${v}</div><div class="muted" style="text-transform:uppercase;letter-spacing:.05em;font-size:10.5px;font-weight:700">${l}</div></div>`).join('')}
     </div>
     ${n === 0 ? `<div class="card"><div class="empty"><div class="ic">📊</div>No hay respuestas de ${cfg.nombre} para los filtros seleccionados.</div></div>` : `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px" class="met-grid">
-      <div class="card"><div class="section-head"><h2>Distribución por interpretación</h2></div><canvas id="met-dist"></canvas></div>
-      <div class="card"><div class="section-head"><h2>Evolución del puntaje promedio por mes</h2></div><canvas id="met-evo"></canvas></div>
-    </div>`}`;
+    <div class="card"><div class="section-head"><h2>Distribución por interpretación</h2></div><canvas id="met-dist"></canvas></div>`}`;
   if(!n || !window.Chart) return;
   const cd = document.getElementById('met-dist');
   if(cd) _metCharts.push(new Chart(cd, { type:'bar', data:{ labels:dist.map(d => d.label), datasets:[{ data:dist.map(d => d.n), backgroundColor:dist.map(d => d.color), borderWidth:0 }] }, options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } } } }));
-  const ce = document.getElementById('met-evo');
-  if(ce) _metCharts.push(new Chart(ce, { type:'line', data:{ labels:meses, datasets:[{ data:promMes, borderColor:'#00B4C8', backgroundColor:'transparent', tension:.3 }] }, options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } } } }));
 }
 
 /* ═══════════════════════════════════════════════════════════
