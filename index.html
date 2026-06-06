@@ -326,6 +326,14 @@ input,select,textarea{font-family:inherit;font-size:15px}
 .maf-afectadas-h{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--color-texto-base);margin-bottom:10px}
 .maf-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:7px}
 .maf-bar-lbl{flex:0 0 165px;font-size:11.5px;line-height:1.25;font-weight:600;color:var(--color-estructura-gris)}
+.psqi-track{height:10px;background:var(--color-fondo-secundario);border-radius:8px;overflow:hidden}
+.psqi-fill{height:100%;border-radius:8px;transition:width .3s}
+.psqi-comp{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--color-fondo-secundario)}
+.psqi-comp-lbl{flex:1;font-size:13px;color:var(--color-estructura-gris)}
+.psqi-comp-track{display:flex;gap:4px;flex:0 0 auto}
+.psqi-dot{width:16px;height:8px;border-radius:3px;background:var(--color-arena);opacity:.35}
+.psqi-dot.on{opacity:1;background:var(--acento-teal-medio)}
+.psqi-comp-num{flex:0 0 16px;text-align:right;font-weight:800;font-size:13px;color:var(--color-texto-base)}
 .maf-bar-track{flex:1;height:14px;background:var(--color-fondo-secundario);border-radius:10px;overflow:hidden}
 .maf-bar-fill{display:block;height:100%;background:var(--acento-teal-medio);border-radius:10px}
 .maf-bar-num{flex:0 0 30px;text-align:right;font-weight:800;font-size:13px;color:var(--color-texto-base)}
@@ -562,6 +570,7 @@ const PUEDE_ENVIAR = ['Médico Administrador','Médico','Nutricionista','Psicól
 const FORMULARIOS_CATALOGO = [
   { id:'MAF01',  nombre:'Cuestionario de Salud Metabólica',        tiempo:'10–15 min', icon:'🩺' },
   { id:'ISI01',  nombre:'Índice de Severidad del Insomnio (ISI)',  tiempo:'3–5 min',   icon:'🌙' },
+  { id:'PSQI01', nombre:'Calidad de Sueño de Pittsburgh (PSQI)',   tiempo:'5–7 min',   icon:'😴' },
   { id:'PSS01',  nombre:'Escala de Estrés Percibido (PSS-4)',      tiempo:'2–3 min',   icon:'🧠' },
   { id:'YFAS01', nombre:'Escala de Adicción a la Comida (mYFAS)',  tiempo:'5–7 min',   icon:'🍔' },
   { id:'EEQ01',  nombre:'Alimentación Emocional (EEQ)',            tiempo:'3–5 min',   icon:'💗' },
@@ -788,6 +797,9 @@ const ETI_Y8  = ['Nunca','1 vez/mes','2-3 veces/mes','1 vez/semana','2-3 veces/s
 const ETI_ISI_SEV = ['Ninguna','Leve','Moderada','Grave','Muy grave'];
 const ETI_ISI_SAT = ['Muy satisfecho/a','Satisfecho/a','Neutral','Insatisfecho/a','Muy insatisfecho/a'];
 const ETI_ISI_IMP = ['Nada','Un poco','Algo','Mucho','Muchísimo'];
+const ETI_PSQI_FREC_R = ['Ninguna','< 1 vez/sem','1-2 veces/sem','≥ 3 veces/sem'];
+const ETI_PSQI_CAL = ['Muy buena','Bastante buena','Bastante mala','Muy mala'];
+const ETI_PSQI_PROB = ['Ningún problema','Leve problema','Un problema','Grave problema'];
 
 const ESCALAS = {
   PSS01: {
@@ -859,6 +871,35 @@ const ESCALAS = {
       {id:'eeq10',texto:'¿Comes más cuando sientes que perdiste el control sobre tu alimentación?',etiquetas:ETI_EEQ},
     ],
   },
+  PSQI01: {
+    nombre:'Índice de Calidad de Sueño de Pittsburgh (PSQI)',
+    descripcion:'Evalúa la calidad y los patrones del sueño durante el último mes en 7 componentes (calidad subjetiva, latencia, duración, eficiencia habitual, perturbaciones, uso de medicación y disfunción diurna). El sueño reparador es un pilar del abordaje funcional: su deterioro eleva el cortisol, reduce la sensibilidad a la insulina, desregula el apetito (ghrelina/leptina) y limita la respuesta a las intervenciones dietéticas y de ejercicio.',
+    tabulacion:'psqi',
+    maxScore:21, alarmaMin:5,
+    alarma:'PSQI ≥ 5 (mala calidad de sueño): se recomienda evaluación del sueño. PSQI ≥ 11 (trastorno severo): requiere atención médica; aplicar STOP-BANG para descartar apnea y considerar derivación a medicina del sueño.',
+    interpretacion:[{min:0,max:4,label:'Buena calidad de sueño',color:'#007A60'},{min:5,max:10,label:'Mala calidad de sueño',color:'#C4B49A'},{min:11,max:21,label:'Trastorno de sueño severo',color:'#9B4EBF'}],
+    preguntas:[
+      {id:'psqiAcuesta',texto:'Hora de acostarse',tipo:'hora'},
+      {id:'psqiLatMin',texto:'Minutos para quedarse dormido/a',tipo:'numero'},
+      {id:'psqiLevanta',texto:'Hora de levantarse',tipo:'hora'},
+      {id:'psqiHoras',texto:'Horas de sueño real por noche',tipo:'numero'},
+      {id:'psqi5a',texto:'No conciliar el sueño en la primera media hora',etiquetas:ETI_PSQI_FREC_R},
+      {id:'psqi5b',texto:'Despertarse en la noche o de madrugada',etiquetas:ETI_PSQI_FREC_R},
+      {id:'psqi5c',texto:'Levantarse para ir al baño',etiquetas:ETI_PSQI_FREC_R},
+      {id:'psqi5d',texto:'No poder respirar bien',etiquetas:ETI_PSQI_FREC_R},
+      {id:'psqi5e',texto:'Toser o roncar ruidosamente',etiquetas:ETI_PSQI_FREC_R},
+      {id:'psqi5f',texto:'Sentir frío',etiquetas:ETI_PSQI_FREC_R},
+      {id:'psqi5g',texto:'Sentir demasiado calor',etiquetas:ETI_PSQI_FREC_R},
+      {id:'psqi5h',texto:'Tener pesadillas',etiquetas:ETI_PSQI_FREC_R},
+      {id:'psqi5i',texto:'Sentir dolor',etiquetas:ETI_PSQI_FREC_R},
+      {id:'psqi5jTxt',texto:'Otras razones (descripción)',tipo:'texto'},
+      {id:'psqi5j',texto:'Frecuencia de esas otras razones',etiquetas:ETI_PSQI_FREC_R},
+      {id:'psqi6',texto:'Calidad general del sueño',etiquetas:ETI_PSQI_CAL},
+      {id:'psqi7',texto:'Uso de medicinas para dormir',etiquetas:ETI_PSQI_FREC_R},
+      {id:'psqi8',texto:'Dificultad para mantenerse despierto/a de día',etiquetas:ETI_PSQI_FREC_R},
+      {id:'psqi9',texto:'Problema para tener ánimos en las actividades',etiquetas:ETI_PSQI_PROB},
+    ],
+  },
 };
 
 // Calcula puntaje + interpretación + alarma para una escala (no MAF)
@@ -880,6 +921,7 @@ function puntuarEscala(formId, r){
     }
     return { valor:sintomas, scoreLabel:`${sintomas} síntoma${sintomas!==1?'s':''} · Dx adicción: ${dx?'Sí':'No'}`, interpretacion:band.label, color:band.color, alarma, nota };
   }
+  if(cfg.tabulacion === 'psqi'){ return puntuarPSQI(r); }
   let total = 0;
   cfg.preguntas.forEach(q => {
     let v = r[q.id] ?? 0;
@@ -889,6 +931,60 @@ function puntuarEscala(formId, r){
   const band = cfg.interpretacion.find(b => total >= b.min && total <= b.max) || cfg.interpretacion[cfg.interpretacion.length-1];
   const alarma = (cfg.alarmaMin != null && total >= cfg.alarmaMin) ? cfg.alarma : '';
   return { valor:total, scoreLabel:`${total} / ${cfg.maxScore}`, interpretacion:band.label, color:band.color, alarma };
+}
+
+// PSQI: 7 componentes (0-3 c/u) → total 0-21. Maneja horas "HH:MM" y cruce de medianoche.
+function puntuarPSQI(r){
+  const f = v => (v==null || v==='') ? 0 : (v|0);            // ítems de frecuencia ya vienen 0-3
+  // C1 Calidad subjetiva (P6)
+  const c1 = f(r.psqi6);
+  // C2 Latencia: P2 (min) remapeado + P5a, luego remapeado
+  const min = Number(r.psqiLatMin);
+  const latP2 = isNaN(min) ? 0 : (min<=15?0:(min<=30?1:(min<=60?2:3)));
+  const sumLat = latP2 + f(r.psqi5a);
+  const c2 = sumLat===0?0:(sumLat<=2?1:(sumLat<=4?2:3));
+  // C3 Duración (P4)
+  const hrs = Number(r.psqiHoras);
+  const c3 = isNaN(hrs) ? 0 : (hrs>7?0:(hrs>=6?1:(hrs>=5?2:3)));
+  // C4 Eficiencia = horas dormido / horas en cama × 100
+  let c4 = 0, efic = null;
+  const minCama = psqiMinEnCama(r.psqiAcuesta, r.psqiLevanta);
+  if(minCama && !isNaN(hrs) && hrs>0){
+    efic = (hrs*60 / minCama) * 100;
+    c4 = efic>=85?0:(efic>=75?1:(efic>=65?2:3));
+  }
+  // C5 Perturbaciones: suma P5b..P5j (9 ítems)
+  const pert = ['psqi5b','psqi5c','psqi5d','psqi5e','psqi5f','psqi5g','psqi5h','psqi5i','psqi5j']
+    .reduce((a,id) => a + f(r[id]), 0);
+  const c5 = pert===0?0:(pert<=9?1:(pert<=18?2:3));
+  // C6 Medicación (P7)
+  const c6 = f(r.psqi7);
+  // C7 Disfunción diurna: P8 + P9
+  const sumDis = f(r.psqi8) + f(r.psqi9);
+  const c7 = sumDis===0?0:(sumDis<=2?1:(sumDis<=4?2:3));
+
+  const desglose = [
+    {n:1,nombre:'Calidad subjetiva',score:c1},
+    {n:2,nombre:'Latencia de sueño',score:c2},
+    {n:3,nombre:'Duración del sueño',score:c3},
+    {n:4,nombre:'Eficiencia habitual',score:c4,detalle:efic!=null?`${Math.round(efic)}% del tiempo en cama`:'sin dato de horas'},
+    {n:5,nombre:'Perturbaciones',score:c5},
+    {n:6,nombre:'Uso de medicación',score:c6},
+    {n:7,nombre:'Disfunción diurna',score:c7},
+  ];
+  const total = desglose.reduce((a,c) => a + c.score, 0);
+  const cfg = ESCALAS.PSQI01;
+  const band = cfg.interpretacion.find(b => total>=b.min && total<=b.max) || cfg.interpretacion[cfg.interpretacion.length-1];
+  const alarma = (cfg.alarmaMin != null && total >= cfg.alarmaMin) ? cfg.alarma : '';
+  return { valor:total, scoreLabel:`${total} / 21`, interpretacion:band.label, color:band.color, alarma, desglose };
+}
+// Minutos en cama entre acostarse (HH:MM) y levantarse (HH:MM); maneja cruce de medianoche.
+function psqiMinEnCama(acuesta, levanta){
+  const p = s => { const m = /^(\d{1,2}):(\d{2})$/.exec(String(s||'').trim()); return m ? (+m[1])*60 + (+m[2]) : null; };
+  const a = p(acuesta), l = p(levanta);
+  if(a==null || l==null) return null;
+  let d = l - a; if(d <= 0) d += 1440;
+  return d;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1433,12 +1529,18 @@ function htmlEscala(formId){
     return `<div class="esc-fila"><span>${escapeHtml(q.texto)}</span><span class="esc-val">${et}</span></div>`;
   }).join('');
   const evolHTML = evol.length >= 2 ? `<div class="maf-afectadas-h" style="margin-top:18px">Evolución de este paciente</div><div style="max-width:560px"><canvas id="esc-evo"></canvas></div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${evol.map(e => `<span class="badge" style="background:${e.color};color:#fff">${formatFecha(e.fecha)}: ${e.valor} · ${e.label}</span>`).join('')}</div>` : '';
+  const desgloseHTML = res.desglose ? `
+    <div class="psqi-track" style="margin:12px 0 4px"><div class="psqi-fill" style="width:${Math.round(res.valor/21*100)}%;background:${res.color}"></div></div>
+    <div class="muted" style="font-size:11px;margin-bottom:6px">Puntuación global ${res.valor}/21 · 0 = óptimo, 21 = peor</div>
+    <div class="maf-afectadas-h" style="margin-top:14px">Desglose por componente (0–3 cada uno)</div>
+    ${res.desglose.map(c => `<div class="psqi-comp"><span class="psqi-comp-lbl">C${c.n} · ${c.nombre}${c.detalle ? ` <span class="muted" style="font-weight:400">— ${c.detalle}</span>` : ''}</span><span class="psqi-comp-track">${[1,2,3].map(i => `<span class="psqi-dot ${i<=c.score?'on':''}"></span>`).join('')}</span><span class="psqi-comp-num">${c.score}</span></div>`).join('')}` : '';
   return `<div class="resultado-panel">
     <div class="resultado-head"><div class="esc-titulo">${cfg.nombre}</div><button class="btn btn-primary" style="padding:7px 14px;font-size:12px" onclick="copiarHCEscala('${formId}')">📋 Copiar para HC</button></div>
     <div class="esc-desc">${cfg.descripcion}</div>
     <div class="esc-score" style="border-color:${res.color}"><div class="esc-score-num" style="color:${res.color}">${res.scoreLabel}</div><div class="esc-score-band" style="background:${res.color}">${res.interpretacion}</div></div>
     ${res.alarma ? `<div class="esc-alarma">⚠️ ${res.alarma}</div>` : ''}
     ${res.nota ? `<div class="esc-nota">ℹ️ ${res.nota}</div>` : ''}
+    ${desgloseHTML}
     ${evolHTML}
     <div class="maf-afectadas-h" style="margin-top:18px">Respuestas (última)</div>
     ${filas}
@@ -1523,7 +1625,7 @@ function respuestasMAF(cc){
     .sort((a,b) => (a.fechaRespuesta||'').localeCompare(b.fechaRespuesta||''));
 }
 
-const CHIP_LABEL = { MAF01:'MAF', ISI01:'Sueño (ISI)', PSS01:'Estrés (PSS-4)', YFAS01:'Comida (mYFAS)', EEQ01:'Emocional (EEQ)' };
+const CHIP_LABEL = { MAF01:'MAF', ISI01:'Sueño (ISI)', PSQI01:'Sueño (PSQI)', PSS01:'Estrés (PSS-4)', YFAS01:'Comida (mYFAS)', EEQ01:'Emocional (EEQ)' };
 /* ── Tabulación MAF por categorías (devuelve HTML para el panel inline) ── */
 function htmlMAFCategorias(resp){
   const r = resp.respuestas || {};
@@ -1673,7 +1775,7 @@ function copiarHCMaf(){
 let _metDesde = '', _metHasta = '', _metMedico = '', _metForm = 'MAF01', _metCharts = [];
 const MET_CHIPS = [
   {id:'MAF01',label:'MAF'},{id:'PSS01',label:'Estrés (PSS-4)'},{id:'ISI01',label:'Sueño (ISI)'},
-  {id:'YFAS01',label:'Comida (mYFAS)'},{id:'EEQ01',label:'Emocional (EEQ)'},
+  {id:'PSQI01',label:'Sueño (PSQI)'},{id:'YFAS01',label:'Comida (mYFAS)'},{id:'EEQ01',label:'Emocional (EEQ)'},
 ];
 function respuestasFiltradas(formId){
   const pacByCC = Object.fromEntries(PACIENTES_DATA.map(p => [p.cc, p]));

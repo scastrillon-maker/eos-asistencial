@@ -179,6 +179,7 @@ const PAUSE_EXPIRA_DIAS = 7;
 
 /* ═══════════════ DEFINICIÓN DE FORMULARIOS ═══════════════ */
 const ETI_LIKERT8 = ['Nunca','1 vez/mes','2-3 veces/mes','1 vez/semana','2-3 veces/semana','4-6 veces/semana','Todos los días','Varias veces al día'];
+const ETI_PSQI_FREC = ['Ninguna vez en el último mes','Menos de una vez a la semana','Una o dos veces a la semana','Tres o más veces a la semana'];
 
 const FORMULARIOS_DISPONIBLES = {
   'MAF01': {
@@ -245,6 +246,31 @@ const FORMULARIOS_DISPONIBLES = {
       { id:'eeq8',  texto:'¿Comes más cuando estás feliz o celebrando algo?', tipo:'escala', etiquetas:['Nunca','A veces','Generalmente','Siempre'] },
       { id:'eeq9',  texto:'¿Comes más cuando tienes problemas o conflictos con otras personas?', tipo:'escala', etiquetas:['Nunca','A veces','Generalmente','Siempre'] },
       { id:'eeq10', texto:'¿Comes más cuando sientes que has perdido el control sobre tu alimentación?', tipo:'escala', etiquetas:['Nunca','A veces','Generalmente','Siempre'] },
+    ],
+  },
+  'PSQI01': {
+    id:'PSQI01', nombre:'Índice de Calidad de Sueño de Pittsburgh (PSQI)', tipo:'estandar',
+    bienvenida:{ titulo:'Calidad de tu Sueño', descripcion:'Estas preguntas se refieren a tus hábitos de sueño durante el último mes. Responde lo más preciso para la mayoría de los días y noches.', tiempoEstimado:'5 a 7 minutos', instruccion:'Piensa únicamente en el último mes.' },
+    preguntas:[
+      { id:'psqiAcuesta', seccion:'Tus horarios de sueño', texto:'¿A qué hora te acuestas habitualmente por la noche?', tipo:'hora' },
+      { id:'psqiLatMin',  seccion:'Tus horarios de sueño', texto:'¿Cuántos minutos te ha costado quedarte dormido/a después de acostarte?', tipo:'numero' },
+      { id:'psqiLevanta', seccion:'Tus horarios de sueño', texto:'¿A qué hora te levantas habitualmente por la mañana?', tipo:'hora' },
+      { id:'psqiHoras',   seccion:'Tus horarios de sueño', texto:'¿Cuántas horas de sueño real tienes por noche? (puede ser distinto al tiempo en cama)', tipo:'numero' },
+      { id:'psqi5a', seccion:'¿Con qué frecuencia tienes problemas para dormir a causa de…?', texto:'No poder conciliar el sueño en la primera media hora', tipo:'escala', etiquetas:ETI_PSQI_FREC },
+      { id:'psqi5b', seccion:'¿Con qué frecuencia tienes problemas para dormir a causa de…?', texto:'Despertarte en medio de la noche o de madrugada', tipo:'escala', etiquetas:ETI_PSQI_FREC },
+      { id:'psqi5c', seccion:'¿Con qué frecuencia tienes problemas para dormir a causa de…?', texto:'Tener que levantarte para ir al baño', tipo:'escala', etiquetas:ETI_PSQI_FREC },
+      { id:'psqi5d', seccion:'¿Con qué frecuencia tienes problemas para dormir a causa de…?', texto:'No poder respirar bien', tipo:'escala', etiquetas:ETI_PSQI_FREC },
+      { id:'psqi5e', seccion:'¿Con qué frecuencia tienes problemas para dormir a causa de…?', texto:'Toser o roncar ruidosamente', tipo:'escala', etiquetas:ETI_PSQI_FREC },
+      { id:'psqi5f', seccion:'¿Con qué frecuencia tienes problemas para dormir a causa de…?', texto:'Sentir frío', tipo:'escala', etiquetas:ETI_PSQI_FREC },
+      { id:'psqi5g', seccion:'¿Con qué frecuencia tienes problemas para dormir a causa de…?', texto:'Sentir demasiado calor', tipo:'escala', etiquetas:ETI_PSQI_FREC },
+      { id:'psqi5h', seccion:'¿Con qué frecuencia tienes problemas para dormir a causa de…?', texto:'Tener pesadillas', tipo:'escala', etiquetas:ETI_PSQI_FREC },
+      { id:'psqi5i', seccion:'¿Con qué frecuencia tienes problemas para dormir a causa de…?', texto:'Sentir dolor', tipo:'escala', etiquetas:ETI_PSQI_FREC },
+      { id:'psqi5jTxt', seccion:'¿Alguna otra razón?', texto:'Si hay otra razón por la que te cueste dormir, descríbela (opcional)', tipo:'texto', opcional:true },
+      { id:'psqi5j', seccion:'¿Alguna otra razón?', texto:'¿Con qué frecuencia esas otras razones te causan problemas para dormir?', tipo:'escala', etiquetas:ETI_PSQI_FREC },
+      { id:'psqi6', seccion:'Valoración general', texto:'En conjunto, ¿cómo valorarías la calidad de tu sueño durante el último mes?', tipo:'escala', etiquetas:['Muy buena','Bastante buena','Bastante mala','Muy mala'] },
+      { id:'psqi7', seccion:'Medicación', texto:'¿Con qué frecuencia has tomado medicinas (recetadas o no) para poder dormir?', tipo:'escala', etiquetas:ETI_PSQI_FREC },
+      { id:'psqi8', seccion:'Durante el día', texto:'¿Con qué frecuencia te ha costado mantenerte despierto/a mientras conducías, comías o desarrollabas alguna actividad social?', tipo:'escala', etiquetas:ETI_PSQI_FREC },
+      { id:'psqi9', seccion:'Durante el día', texto:'¿Hasta qué punto ha sido un problema tener ánimos para realizar tus actividades?', tipo:'escala', etiquetas:['Ningún problema','Solo un leve problema','Un problema','Un grave problema'] },
     ],
   },
 };
@@ -440,7 +466,7 @@ function mafConstruirPreguntas(ans){
 }
 
 /* ═══════════════ ESTADO ═══════════════ */
-const ORDEN_FORMS = ['MAF01','ISI01','PSS01','YFAS01','EEQ01']; // orden fijo de presentación
+const ORDEN_FORMS = ['MAF01','ISI01','PSQI01','PSS01','YFAS01','EEQ01']; // orden fijo de presentación
 const S = {
   token:'', cc:'', formIds:[], respondidos:[],          // sesión multi-formulario
   formId:'', form:null, isMAF:false, preguntas:[], idx:0, answers:{}, dir:'right', // formulario actual
@@ -612,6 +638,8 @@ function renderPregunta(dir){
         <button class="btn-add-item" onclick="agregarItemLista('${q.id}')">+ Agregar</button>
       </div>
       <div class="lista-items" id="lista-items">${renderItemsLista(q.id, items)}</div>`;
+  } else if(q.tipo === 'hora'){
+    html += `<input class="campo" type="time" id="campo-input" value="${val!=null?val:''}" onchange="onCampo('${q.id}')"/>`;
   } else if(q.tipo === 'numero'){
     html += `<input class="campo" type="number" inputmode="numeric" id="campo-input" value="${val!=null?val:''}" placeholder="Escribe un número" oninput="onCampo('${q.id}')"/>`;
   } else if(q.tipo === 'textarea'){
