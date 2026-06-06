@@ -325,7 +325,7 @@ input,select,textarea{font-family:inherit;font-size:15px}
 .maf-afectadas{margin-top:16px;background:#fff;border:1.5px solid var(--color-arena);border-radius:var(--radio);padding:14px 16px}
 .maf-afectadas-h{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--color-texto-base);margin-bottom:10px}
 .maf-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:7px}
-.maf-bar-lbl{flex:0 0 100px;font-size:12px;font-weight:600;color:var(--color-estructura-gris)}
+.maf-bar-lbl{flex:0 0 165px;font-size:11.5px;line-height:1.25;font-weight:600;color:var(--color-estructura-gris)}
 .maf-bar-track{flex:1;height:14px;background:var(--color-fondo-secundario);border-radius:10px;overflow:hidden}
 .maf-bar-fill{display:block;height:100%;background:var(--acento-teal-medio);border-radius:10px}
 .maf-bar-num{flex:0 0 30px;text-align:right;font-weight:800;font-size:13px;color:var(--color-texto-base)}
@@ -574,13 +574,29 @@ const FORMULARIOS_CATALOGO = [
    se muestra en CADA categoría a la que pertenece.
 ═══════════════════════════════════════════════════════════ */
 const MAF_CATEGORIAS = [
-  {id:'cat1',numero:1},{id:'cat2',numero:2},{id:'cat3',numero:3},{id:'cat4',numero:4},
-  {id:'cat5',numero:5},{id:'cat6',numero:6},{id:'cat7',numero:7},{id:'cat8',numero:8},
-  {id:'cat9',numero:9},{id:'cat10',numero:10},{id:'cat11',numero:11},{id:'cat12',numero:12},
-  {id:'cat13',numero:13},{id:'cat14',numero:14},{id:'cat15',numero:15},{id:'cat16',numero:16},
-  {id:'cat17',numero:17,soloHombres:true},{id:'cat18',numero:18,soloHombres:true},
-  {id:'cat19',numero:19,soloMujeresMenstruando:true},{id:'cat20',numero:20,soloMujeresMenopausia:true},
+  {id:'cat1', numero:1,  romano:'I',     titulo:'Colon'},
+  {id:'cat2', numero:2,  romano:'II',    titulo:'Barrera intestinal'},
+  {id:'cat3', numero:3,  romano:'III',   titulo:'Tolerancia a químicos'},
+  {id:'cat4', numero:4,  romano:'IV',    titulo:'Estómago - Hipoclorhidria'},
+  {id:'cat5', numero:5,  romano:'V',     titulo:'Estómago - Hiperclorhidria'},
+  {id:'cat6', numero:6,  romano:'VI',    titulo:'Páncreas'},
+  {id:'cat7', numero:7,  romano:'VII',   titulo:'Intestino delgado'},
+  {id:'cat8', numero:8,  romano:'VIII',  titulo:'Biliar'},
+  {id:'cat9', numero:9,  romano:'IX',    titulo:'Detoxificación Hepática'},
+  {id:'cat10',numero:10, romano:'X',     titulo:'Hipoglicemia'},
+  {id:'cat11',numero:11, romano:'XI',    titulo:'Resistencia a la Insulina'},
+  {id:'cat12',numero:12, romano:'XII',   titulo:'Adrenal - Hipofunción'},
+  {id:'cat13',numero:13, romano:'XIII',  titulo:'Adrenal - Hiperfunción'},
+  {id:'cat14',numero:14, romano:'XIV',   titulo:'Electrolitos y pH'},
+  {id:'cat15',numero:15, romano:'XV',    titulo:'Hipotiroidismo'},
+  {id:'cat16',numero:16, romano:'XVI',   titulo:'Hipertiroidismo'},
+  {id:'cat17',numero:17, romano:'XVII',  titulo:'Próstata', soloHombres:true},
+  {id:'cat18',numero:18, romano:'XVIII', titulo:'Andropausia', soloHombres:true},
+  {id:'cat19',numero:19, romano:'XIX',   titulo:'Ciclo menstrual', soloMujeresMenstruando:true},
+  {id:'cat20',numero:20, romano:'XX',    titulo:'Menopausia', soloMujeresMenopausia:true},
 ];
+// Etiqueta legible de categoría: acepta el objeto categoría o su número. → "IX · Detoxificación Hepática"
+function catLabel(c){ if(typeof c !== 'object') c = MAF_CATEGORIAS.find(x => String(x.numero) === String(c)); return c ? `${c.romano} · ${c.titulo}` : ''; }
 const MAF_PREGUNTAS = [
   {id:'p001',texto:'Siente que sus intestinos no se vacían completamente'},
   {id:'p002',texto:'Dolor abdominal que mejora cuando pasa gases o va al baño'},
@@ -592,7 +608,6 @@ const MAF_PREGUNTAS = [
   {id:'p008',texto:'Muchos gases fétidos'},
   {id:'p009',texto:'Más de 3 deposiciones al día'},
   {id:'p010',texto:'Usa laxantes con frecuencia'},
-  {id:'p011',texto:'Aumento de la frecuencia de reacción a los alimentos'},
   {id:'p012',texto:'Reacciones impredecibles a los alimentos'},
   {id:'p013',texto:'Dolor o hinchazón por todo el cuerpo'},
   {id:'p014',texto:'Se le inflama el abdomen de manera impredecible'},
@@ -649,7 +664,6 @@ const MAF_PREGUNTAS = [
   {id:'p074',texto:'Comer le alivia la baja energía'},
   {id:'p075',texto:'Con frecuencia se siente nervioso o tembloroso'},
   {id:'p077',texto:'Su memoria empeora lejos de las comidas'},
-  {id:'p078',texto:'Visión borrosa'},
   {id:'p079',texto:'Fatiga o sueño después de las comidas'},
   {id:'p081',texto:'Le hace falta un dulce después de las comidas'},
   {id:'p082',texto:'La circunferencia del abdomen es mayor que las caderas'},
@@ -953,12 +967,13 @@ function rowsToTokens(rows){
       token:String(r[0]), cc:String(r[1]||''), formIds:Array.isArray(formIds)?formIds:[],
       fechaEnvio:String(r[3]||'').slice(0,10), estado:String(r[4]||'pendiente'),
       formIdsRespondidos:Array.isArray(resp)?resp:[], creadoPor:String(r[6]||''),
+      sexo:String(r[7]||''),
     });
   });
 }
 function tokensToRows(){
-  const h = ['token','cc','formIds','fechaEnvio','estado','formIdsRespondidos','creadoPor'];
-  return [h, ...TOKENS_DATA.map(t => [t.token,t.cc,JSON.stringify(t.formIds||[]),t.fechaEnvio,t.estado,JSON.stringify(t.formIdsRespondidos||[]),t.creadoPor||''])];
+  const h = ['token','cc','formIds','fechaEnvio','estado','formIdsRespondidos','creadoPor','sexo'];
+  return [h, ...TOKENS_DATA.map(t => [t.token,t.cc,JSON.stringify(t.formIds||[]),t.fechaEnvio,t.estado,JSON.stringify(t.formIdsRespondidos||[]),t.creadoPor||'',t.sexo||''])];
 }
 function rowsToRespuestas(rows){
   if(!rows || rows.length < 2) return;
@@ -1449,9 +1464,11 @@ async function enviarFormularios(){
   const orden = FORMULARIOS_CATALOGO.map(f => f.id);           // orden fijo
   formIds = formIds.sort((a,b) => orden.indexOf(a) - orden.indexOf(b));
   const token = `${p.cc}-${Date.now().toString(36)}`;
+  // Sexo para el MAF: solo Hombre/Mujer sirven para ramificar; otros → '' (el formulario preguntará)
+  const sexoMaf = (p.genero === 'Hombre' || p.genero === 'Mujer') ? p.genero : '';
   _saving = true;
   try{
-    TOKENS_DATA.push({ token, cc:p.cc, formIds, fechaEnvio:hoy(), estado:'pendiente', formIdsRespondidos:[], creadoPor:currentUser.nombre });
+    TOKENS_DATA.push({ token, cc:p.cc, formIds, fechaEnvio:hoy(), estado:'pendiente', formIdsRespondidos:[], creadoPor:currentUser.nombre, sexo:sexoMaf });
     const ok = await gasWrite('Tokens', tokensToRows());
     if(!ok) throw new Error('write falló');
     await logAudit('Enviar formularios', `${p.tipoDoc} ${p.cc} · ${p.nombre} · ${formIds.map(nombreForm).join(', ')}`);
@@ -1525,7 +1542,7 @@ function htmlMAFCategorias(resp){
     return `
       <div class="maf-cat">
         <div class="maf-cat-head">
-          <span class="maf-cat-num">Categoría ${c.categoria.numero}</span>
+          <span class="maf-cat-num">${catLabel(c.categoria)}</span>
           ${c.muyImplicada ? `<span class="badge badge-implicada">⚠️ Categoría muy implicada</span>` : ''}
           <span class="maf-cat-sub">${c.significativas.length} de ${c.preguntas.length} con valor ≥ 2</span>
         </div>
@@ -1537,7 +1554,7 @@ function htmlMAFCategorias(resp){
   const maxA = afect.length ? afect[0].significativas.length : 1;
   const barras = afect.map(c => `
     <div class="maf-bar-row">
-      <span class="maf-bar-lbl">Categoría ${c.categoria.numero}</span>
+      <span class="maf-bar-lbl">${catLabel(c.categoria)}</span>
       <span class="maf-bar-track"><span class="maf-bar-fill" style="width:${Math.round(c.significativas.length / maxA * 100)}%"></span></span>
       <span class="maf-bar-num">${c.significativas.length}</span>
     </div>`).join('');
@@ -1545,7 +1562,7 @@ function htmlMAFCategorias(resp){
   return `
     <div class="maf-resumen">
       <div class="maf-resumen-tot"><strong>${idsSig.size}</strong> síntomas significativos de ${idsTot.size} preguntas</div>
-      <div class="maf-resumen-chips">${top.length ? top.map(c => `<span class="badge badge-revisar">Cat. ${c.categoria.numero}: ${c.significativas.length} síntoma${c.significativas.length!==1?'s':''}</span>`).join('') : '<span class="muted">Sin síntomas significativos</span>'}</div>
+      <div class="maf-resumen-chips">${top.length ? top.map(c => `<span class="badge badge-revisar">${catLabel(c.categoria)}: ${c.significativas.length} síntoma${c.significativas.length!==1?'s':''}</span>`).join('') : '<span class="muted">Sin síntomas significativos</span>'}</div>
     </div>
     ${cats}
     ${afect.length ? `<div class="maf-afectadas"><div class="maf-afectadas-h">Categorías más afectadas</div>${barras}</div>` : ''}`;
@@ -1594,7 +1611,7 @@ function montarMAFEvoChart(mafs){
   const ctx = document.getElementById('maf-evo-chart');
   if(ctx && window.Chart){
     const palette = ['#00B4C8','#9B4EBF','#D4622A','#007A60','#0A3D6B','#A84040','#6B7055','#3A8FA0'];
-    const datasets = Object.entries(cats).map(([num,serie],i) => ({ label:'Cat. '+num, data:serie, borderColor:palette[i%palette.length], backgroundColor:'transparent', tension:.3 }));
+    const datasets = Object.entries(cats).map(([num,serie],i) => ({ label:catLabel(num), data:serie, borderColor:palette[i%palette.length], backgroundColor:'transparent', tension:.3 }));
     _mafEvoChart = new Chart(ctx, { type:'line', data:{ labels:fechas.map(f => formatFecha(f)), datasets }, options:{ plugins:{ legend:{ position:'bottom', labels:{ font:{ family:'Montserrat' } } } }, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } } } });
   }
 }
@@ -1641,11 +1658,11 @@ function copiarHCMaf(){
 
   let txt = `METABOLIC ASSESSMENT FORM — ${p?.nombre || ''} — ${formatFecha(resp.fechaRespuesta)}\n\nSÍNTOMAS SIGNIFICATIVOS (valor 2-3):\n`;
   tab.filter(c => c.significativas.length > 0).forEach(c => {
-    txt += `\nCATEGORÍA ${c.categoria.numero} (${c.significativas.length} síntoma${c.significativas.length!==1?'s':''})${c.muyImplicada ? ' ⚠️ MUY IMPLICADA' : ''}:\n`;
+    txt += `\n${catLabel(c.categoria)} (${c.significativas.length} síntoma${c.significativas.length!==1?'s':''})${c.muyImplicada ? ' ⚠️ MUY IMPLICADA' : ''}:\n`;
     c.significativas.forEach(s => { txt += `• ${s.texto} — ${MAF_VALOR_LABEL[s.valor]} (${s.valor})\n`; });
   });
   const afect = tab.filter(c => c.significativas.length > 0).sort((a,b) => b.significativas.length - a.significativas.length);
-  txt += `\nCATEGORÍAS MÁS AFECTADAS: ${afect.map(c => `Cat. ${c.categoria.numero} (${c.significativas.length})`).join(', ') || 'ninguna'}\n`;
+  txt += `\nCATEGORÍAS MÁS AFECTADAS: ${afect.map(c => `${catLabel(c.categoria)} (${c.significativas.length})`).join(', ') || 'ninguna'}\n`;
   txt += `\nTotal síntomas significativos: ${idsSig.size} de ${idsTot.size} preguntas respondidas\n`;
   copiarTexto(txt);
 }
@@ -1748,7 +1765,7 @@ function renderMetricasMAF(){
     </div>`}`;
   if(!mafs.length || !window.Chart) return;
   const cc = document.getElementById('met-cat');
-  if(cc) _metCharts.push(new Chart(cc, { type:'bar', data:{ labels:catTop.map(([n]) => 'Cat. '+n), datasets:[{ data:catTop.map(([,v]) => v), backgroundColor:'#3A8FA0', borderWidth:0 }] }, options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } } } }));
+  if(cc) _metCharts.push(new Chart(cc, { type:'bar', data:{ labels:catTop.map(([n]) => catLabel(n)), datasets:[{ data:catTop.map(([,v]) => v), backgroundColor:'#3A8FA0', borderWidth:0 }] }, options:{ indexAxis:'y', plugins:{ legend:{ display:false } }, scales:{ x:{ beginAtZero:true, ticks:{ precision:0 } } } } }));
 }
 
 function renderMetricasEscala(formId){

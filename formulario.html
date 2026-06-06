@@ -261,7 +261,6 @@ const MAF_PREGUNTAS = [
   { id:'p008', texto:'Muchos gases fétidos' },
   { id:'p009', texto:'Más de 3 deposiciones al día' },
   { id:'p010', texto:'Usa laxantes con frecuencia' },
-  { id:'p011', texto:'Aumento de la frecuencia de reacción a los alimentos' },
   { id:'p012', texto:'Reacciones impredecibles a los alimentos' },
   { id:'p013', texto:'Dolor o hinchazón por todo el cuerpo' },
   { id:'p014', texto:'Se le inflama el abdomen de manera impredecible' },
@@ -318,7 +317,6 @@ const MAF_PREGUNTAS = [
   { id:'p074', texto:'Comer le alivia la baja energía' },
   { id:'p075', texto:'Con frecuencia se siente nervioso o tembloroso' },
   { id:'p077', texto:'Su memoria empeora lejos de las comidas' },
-  { id:'p078', texto:'Visión borrosa' },
   { id:'p079', texto:'Fatiga o sueño después de las comidas' },
   { id:'p081', texto:'Le hace falta un dulce después de las comidas' },
   { id:'p082', texto:'La circunferencia del abdomen es mayor que las caderas' },
@@ -406,7 +404,12 @@ const ETI_FREC4 = ['Nunca','Pocas veces','A menudo','Siempre'];
 /* Construye la lista completa de preguntas del MAF según el sexo/estado ya respondido */
 function mafConstruirPreguntas(ans){
   const qs = [];
-  qs.push({ id:'sexo', seccion:'Para personalizar tu cuestionario', texto:'¿Cuál es tu sexo biológico?', tipo:'seleccion', etiquetas:['Hombre','Mujer'] });
+  // Sexo: si viene fijado desde la ficha del paciente (token), no se pregunta.
+  if(S.sexoFijo === 'Hombre' || S.sexoFijo === 'Mujer'){
+    ans.sexo = S.sexoFijo;
+  } else {
+    qs.push({ id:'sexo', seccion:'Para personalizar tu cuestionario', texto:'¿Cuál es tu sexo biológico?', tipo:'seleccion', etiquetas:['Hombre','Mujer'] });
+  }
   if(ans.sexo === 'Mujer'){
     qs.push({ id:'estadoFem', seccion:'Para personalizar tu cuestionario', texto:'¿En qué etapa te encuentras actualmente?', tipo:'seleccion', etiquetas:['Menstruando','Menopausia'] });
   }
@@ -428,7 +431,6 @@ function mafConstruirPreguntas(ans){
   qs.push({ id:'h_alcohol',   seccion:H, texto:'¿Cuántas bebidas alcohólicas consumes por semana?', tipo:'numero' });
   qs.push({ id:'h_cafeina',   seccion:H, texto:'¿Cuántas bebidas con cafeína consumes al día?', tipo:'numero' });
   qs.push({ id:'h_calle',     seccion:H, texto:'¿Cuántas comidas haces en la calle por semana?', tipo:'numero' });
-  qs.push({ id:'h_pescado',   seccion:H, texto:'¿Cuántas veces comes pescado por semana?', tipo:'numero' });
   qs.push({ id:'h_ejercicio', seccion:H, texto:'¿Cuántas veces haces ejercicio por semana?', tipo:'numero' });
   qs.push({ id:'h_estres',    seccion:H, texto:'En una escala de 1 a 10, ¿cuál es tu nivel de estrés habitual?', tipo:'numero' });
   // PARTE IV — medicamentos y suplementos (uno por uno, para estadística por nombre)
@@ -443,7 +445,7 @@ const S = {
   token:'', cc:'', formIds:[], respondidos:[],          // sesión multi-formulario
   formId:'', form:null, isMAF:false, preguntas:[], idx:0, answers:{}, dir:'right', // formulario actual
 };
-const TIPOS_AUTO = ['escala','likert5','likert8','seleccion']; // avance automático
+const TIPOS_AUTO = ['escala','likert5','likert8','seleccion','siNo']; // avance automático
 function formsPendientes(){ return ORDEN_FORMS.filter(f => S.formIds.includes(f) && !S.respondidos.includes(f)); }
 
 /* ═══════════════ INIT ═══════════════ */
@@ -482,6 +484,7 @@ async function init(){
   const fila = rows.slice(1).find(r => String(r[0]) === S.token);
   if(!fila){ mostrarError('Enlace no válido', 'No encontramos este formulario. Es posible que el enlace esté incompleto.'); return; }
   S.cc = String(fila[1]||'');
+  S.sexoFijo = String(fila[7]||''); // sexo del paciente (de la ficha); solo Hombre/Mujer evita preguntarlo
   // formIds: lista (JSON) o un formId simple (token viejo)
   const raw = String(fila[2]||'');
   let ids = [];
@@ -592,8 +595,8 @@ function renderPregunta(dir){
 
   if(q.tipo === 'siNo'){
     html += `<div class="sino">
-      <button class="opcion ${val===1?'sel':''}" onclick="responder('${q.id}',1,false)">Sí</button>
-      <button class="opcion ${val===0?'sel':''}" onclick="responder('${q.id}',0,false)">No</button></div>`;
+      <button class="opcion ${val===1?'sel':''}" onclick="responder('${q.id}',1,true)">Sí</button>
+      <button class="opcion ${val===0?'sel':''}" onclick="responder('${q.id}',0,true)">No</button></div>`;
   } else if(auto){
     html += `<div class="opciones">` + q.etiquetas.map((et, i) => {
       const selVal = (q.tipo === 'seleccion') ? et : i;
