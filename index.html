@@ -334,6 +334,11 @@ input,select,textarea{font-family:inherit;font-size:15px}
 .psqi-dot{width:16px;height:8px;border-radius:3px;background:var(--color-arena);opacity:.35}
 .psqi-dot.on{opacity:1;background:var(--acento-teal-medio)}
 .psqi-comp-num{flex:0 0 16px;text-align:right;font-weight:800;font-size:13px;color:var(--color-texto-base)}
+.hallazgo-block{background:rgba(13,77,69,0.04);border:0.5px solid rgba(13,77,69,0.15);border-radius:10px;padding:18px 20px;margin-top:20px}
+.hallazgo-title{font-size:10px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#6B7055;margin-bottom:10px}
+.hallazgo-hora{font-size:13px;font-weight:700;color:#0D4D45;margin-bottom:6px}
+.hallazgo-texto{font-size:12px;color:#6B7055;line-height:1.65}
+.hallazgo-alerta{background:rgba(192,57,43,0.07);border-left:3px solid #C0392B;padding:10px 14px;border-radius:6px;font-size:12px;color:#C0392B;line-height:1.55;margin-top:10px}
 .maf-bar-track{flex:1;height:14px;background:var(--color-fondo-secundario);border-radius:10px;overflow:hidden}
 .maf-bar-fill{display:block;height:100%;background:var(--acento-teal-medio);border-radius:10px}
 .maf-bar-num{flex:0 0 30px;text-align:right;font-weight:800;font-size:13px;color:var(--color-texto-base)}
@@ -901,6 +906,29 @@ const ESCALAS = {
     ],
   },
 };
+
+// PSQI · P3b — interpretación clínica del patrón de despertar nocturno (complementaria, no puntúa)
+const PSQI_DESPERTAR = {
+  'Antes de la 1:00am': { color:'#E67E22', texto:'Despertar muy temprano en el ciclo de sueño. Puede estar relacionado con ansiedad de inicio nocturno, apnea del sueño o hábitos de sueño irregulares. Se recomienda higiene del sueño y evaluación de respiración nocturna.' },
+  'Entre 1:00am y 2:00am': { color:'#E67E22', texto:'Despertar en fase de sueño profundo. Frecuentemente asociado a fragmentación del sueño por estrés crónico o disbiosis intestinal con producción de gas nocturna. Evaluar calidad digestiva y carga de estrés.' },
+  'Entre 2:00am y 3:00am': { color:'#C0392B', texto:'Patrón característico de activación hepática nocturna. En medicina funcional se asocia a carga tóxica, hígado graso o metabolismo de estrógenos comprometido. También frecuente en perimenopausia por fluctuación estrogénica.' },
+  'Entre 3:00am y 4:00am': { color:'#C0392B', texto:'Patrón más frecuente en disfunción del eje HPA. El cortisol normalmente inicia su ascenso entre las 3 y 4am — si este pico es prematuro o exagerado, activa el despertar. También muy asociado a sofocos nocturnos en perimenopausia y a hipoglucemia nocturna reactiva.', notaAlerta:'⚠ Este es el patrón de mayor relevancia clínica en medicina funcional. Se recomienda evaluar: perfil cortisol en saliva (4 puntos), glucosa en ayunas, perfil hormonal y síntomas vasomotores.' },
+  'Entre 4:00am y 5:00am': { color:'#E67E22', texto:'Despertar en la transición hacia el sueño ligero REM. Puede indicar insuficiencia de progesterona (que tiene efecto GABAérgico y promueve el sueño profundo) o estrés crónico con elevación de norepinefrina nocturna. Evaluar perfil hormonal completo.' },
+  'Después de las 5:00am': { color:'#E67E22', texto:'Despertar temprano definitivo. Patrón frecuente en depresión melancólica, en fases avanzadas de perimenopausia y en ritmos circadianos adelantados. Evaluar en conjunto con PHQ-9 y exposición a luz matutina.' },
+};
+function psqiHallazgoHTML(d){
+  const T = 'Hallazgo clínico complementario — Patrón de despertar nocturno';
+  if(!d || d === 'No') return `<div class="hallazgo-block"><div class="hallazgo-title">${T}</div><div style="color:#007A60;font-size:13px;font-weight:700">Sin despertares nocturnos espontáneos reportados.</div></div>`;
+  if(d === 'sinHora') return `<div class="hallazgo-block"><div class="hallazgo-title">${T}</div><div class="hallazgo-texto">Reporta despertares nocturnos espontáneos sin hora específica identificada.</div></div>`;
+  const info = PSQI_DESPERTAR[d];
+  if(!info) return `<div class="hallazgo-block"><div class="hallazgo-title">${T}</div><div class="hallazgo-texto">Despertar reportado: ${escapeHtml(d)}.</div></div>`;
+  return `<div class="hallazgo-block"><div class="hallazgo-title">${T}</div>
+    <div class="hallazgo-hora">Despertar reportado — ${d}</div>
+    <span class="badge" style="background:${info.color};color:#fff;display:inline-block;margin-bottom:8px">${d}</span>
+    <div class="hallazgo-texto">${info.texto}</div>
+    ${info.notaAlerta ? `<div class="hallazgo-alerta">${info.notaAlerta}</div>` : ''}
+  </div>`;
+}
 
 // Calcula puntaje + interpretación + alarma para una escala (no MAF)
 function puntuarEscala(formId, r){
@@ -1541,6 +1569,7 @@ function htmlEscala(formId){
     ${res.alarma ? `<div class="esc-alarma">⚠️ ${res.alarma}</div>` : ''}
     ${res.nota ? `<div class="esc-nota">ℹ️ ${res.nota}</div>` : ''}
     ${desgloseHTML}
+    ${formId === 'PSQI01' ? psqiHallazgoHTML(r.psqi3b) : ''}
     ${evolHTML}
     <div class="maf-afectadas-h" style="margin-top:18px">Respuestas (última)</div>
     ${filas}

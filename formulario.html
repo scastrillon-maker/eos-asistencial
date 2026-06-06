@@ -54,6 +54,8 @@ input,textarea{font-family:inherit;font-size:17px}
 
 .q-seccion{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--primario);margin-bottom:12px}
 .q-texto{font-size:20px;font-weight:600;line-height:1.4;color:var(--texto);margin-bottom:26px}
+.q-nota{font-size:11px;color:var(--oliva);font-style:italic;margin-top:4px;line-height:1.5}
+.q-subtexto{font-size:15px;font-weight:600;color:var(--texto);margin:18px 0 10px}
 .opciones{display:flex;flex-direction:column;gap:10px}
 .opcion{
   width:100%;text-align:left;background:var(--card);border:1.5px solid var(--arena);border-radius:var(--radio);
@@ -180,6 +182,7 @@ const PAUSE_EXPIRA_DIAS = 7;
 /* ═══════════════ DEFINICIÓN DE FORMULARIOS ═══════════════ */
 const ETI_LIKERT8 = ['Nunca','1 vez/mes','2-3 veces/mes','1 vez/semana','2-3 veces/semana','4-6 veces/semana','Todos los días','Varias veces al día'];
 const ETI_PSQI_FREC = ['Ninguna vez en el último mes','Menos de una vez a la semana','Una o dos veces a la semana','Tres o más veces a la semana'];
+const PSQI_DESPERTAR_HORAS = ['Antes de la 1:00am','Entre 1:00am y 2:00am','Entre 2:00am y 3:00am','Entre 3:00am y 4:00am','Entre 4:00am y 5:00am','Después de las 5:00am'];
 
 const FORMULARIOS_DISPONIBLES = {
   'MAF01': {
@@ -254,7 +257,8 @@ const FORMULARIOS_DISPONIBLES = {
     preguntas:[
       { id:'psqiAcuesta', seccion:'Tus horarios de sueño', texto:'¿A qué hora te acuestas habitualmente por la noche?', tipo:'hora' },
       { id:'psqiLatMin',  seccion:'Tus horarios de sueño', texto:'¿Cuántos minutos te ha costado quedarte dormido/a después de acostarte?', tipo:'numero' },
-      { id:'psqiLevanta', seccion:'Tus horarios de sueño', texto:'¿A qué hora te levantas habitualmente por la mañana?', tipo:'hora' },
+      { id:'psqiLevanta', seccion:'Tus horarios de sueño', texto:'¿A qué hora te levantas definitivamente por la mañana para iniciar tu día?', tipo:'hora', nota:'Indica la hora en que te levantas de forma definitiva. No incluyas despertares nocturnos temporales — si te despiertas a las 3am pero vuelves a dormir y te levantas a las 7am, registra 7:00am.' },
+      { id:'psqi3b', seccion:'Despertares nocturnos', texto:'¿Te despiertas espontáneamente en medio de la noche sin haber querido despertarte, y te cuesta volver a dormir?', tipo:'despertar', opcional:true },
       { id:'psqiHoras',   seccion:'Tus horarios de sueño', texto:'¿Cuántas horas de sueño real tienes por noche? (puede ser distinto al tiempo en cama)', tipo:'numero' },
       { id:'psqi5a', seccion:'¿Con qué frecuencia tienes problemas para dormir a causa de…?', texto:'No poder conciliar el sueño en la primera media hora', tipo:'escala', etiquetas:ETI_PSQI_FREC },
       { id:'psqi5b', seccion:'¿Con qué frecuencia tienes problemas para dormir a causa de…?', texto:'Despertarte en medio de la noche o de madrugada', tipo:'escala', etiquetas:ETI_PSQI_FREC },
@@ -623,6 +627,15 @@ function renderPregunta(dir){
     html += `<div class="sino">
       <button class="opcion ${val===1?'sel':''}" onclick="responder('${q.id}',1,true)">Sí</button>
       <button class="opcion ${val===0?'sel':''}" onclick="responder('${q.id}',0,true)">No</button></div>`;
+  } else if(q.tipo === 'despertar'){
+    const esSi = (val && val !== 'No'), esNo = (val === 'No');
+    html += `<div class="sino">
+      <button class="opcion ${esSi?'sel':''}" onclick="despertarSiNo('${q.id}',true)">Sí</button>
+      <button class="opcion ${esNo?'sel':''}" onclick="despertarSiNo('${q.id}',false)">No</button></div>`;
+    if(esSi){
+      html += `<div class="q-subtexto">¿A qué hora ocurre este despertar con más frecuencia?</div><div class="opciones">` +
+        PSQI_DESPERTAR_HORAS.map(h => `<button class="opcion ${val===h?'sel':''}" data-h="${h}" onclick="despertarHora('${q.id}',this.dataset.h)">${h}</button>`).join('') + `</div>`;
+    }
   } else if(auto){
     html += `<div class="opciones">` + q.etiquetas.map((et, i) => {
       const selVal = (q.tipo === 'seleccion') ? et : i;
@@ -647,9 +660,11 @@ function renderPregunta(dir){
   } else { // texto
     html += `<input class="campo" type="text" id="campo-input" value="${val!=null?String(val).replace(/"/g,'&quot;'):''}" placeholder="Escribe aquí…" oninput="onCampo('${q.id}')"/>`;
   }
+  if(q.nota) html += `<div class="q-nota">${q.nota}</div>`;
 
   const stage = document.getElementById('stage');
-  stage.innerHTML = `<div class="card ${dir==='left'?'enter-left':'enter-right'}">${html}</div>`;
+  const animCls = dir==='left' ? 'enter-left' : dir==='none' ? '' : 'enter-right';
+  stage.innerHTML = `<div class="card ${animCls}">${html}</div>`;
 
   // Botón Continuar: visible para tipos no automáticos
   const btn = document.getElementById('btn-continuar');
@@ -674,6 +689,17 @@ function actualizarContinuar(q, val){
 }
 
 /* ═══════════════ RESPUESTAS ═══════════════ */
+function despertarSiNo(qid, esSi){
+  const cur = S.answers[qid];
+  S.answers[qid] = esSi ? (cur && cur !== 'No' ? cur : 'sinHora') : 'No';
+  guardarProgreso();
+  renderPregunta('none');
+}
+function despertarHora(qid, hora){
+  S.answers[qid] = hora;
+  guardarProgreso();
+  renderPregunta('none');
+}
 function responder(qid, value, auto){
   S.answers[qid] = value;
   guardarProgreso();
