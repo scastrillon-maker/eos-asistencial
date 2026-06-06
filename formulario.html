@@ -183,6 +183,7 @@ const PAUSE_EXPIRA_DIAS = 7;
 const ETI_LIKERT8 = ['Nunca','1 vez/mes','2-3 veces/mes','1 vez/semana','2-3 veces/semana','4-6 veces/semana','Todos los días','Varias veces al día'];
 const ETI_PSQI_FREC = ['Ninguna vez en el último mes','Menos de una vez a la semana','Una o dos veces a la semana','Tres o más veces a la semana'];
 const PSQI_DESPERTAR_HORAS = ['Antes de la 1:00am','Entre 1:00am y 2:00am','Entre 2:00am y 3:00am','Entre 3:00am y 4:00am','Entre 4:00am y 5:00am','Después de las 5:00am'];
+const ETI_MRS = ['Ninguno','Leve','Moderado','Intenso','Muy intenso'];
 
 const FORMULARIOS_DISPONIBLES = {
   'MAF01': {
@@ -253,28 +254,45 @@ const FORMULARIOS_DISPONIBLES = {
   },
   'PSQI01': {
     id:'PSQI01', nombre:'Índice de Calidad de Sueño de Pittsburgh (PSQI)', tipo:'estandar',
-    bienvenida:{ titulo:'Calidad de tu Sueño', descripcion:'Estas preguntas se refieren a tus hábitos de sueño durante el último mes. Responde lo más preciso para la mayoría de los días y noches.', tiempoEstimado:'5 a 7 minutos', instruccion:'Piensa únicamente en el último mes.' },
+    bienvenida:{ titulo:'Calidad de su Sueño', descripcion:'Estas preguntas se refieren a sus hábitos de sueño durante el último mes. Responda lo más preciso para la mayoría de los días y noches.', tiempoEstimado:'5 a 7 minutos', instruccion:'Piense únicamente en el último mes.' },
     preguntas:[
-      { id:'psqiAcuesta', seccion:'Tus horarios de sueño', texto:'¿A qué hora te acuestas habitualmente por la noche?', tipo:'hora' },
-      { id:'psqiLatMin',  seccion:'Tus horarios de sueño', texto:'¿Cuántos minutos te ha costado quedarte dormido/a después de acostarte?', tipo:'numero' },
-      { id:'psqiLevanta', seccion:'Tus horarios de sueño', texto:'¿A qué hora te levantas definitivamente por la mañana para iniciar tu día?', tipo:'hora', nota:'Indica la hora en que te levantas de forma definitiva. No incluyas despertares nocturnos temporales — si te despiertas a las 3am pero vuelves a dormir y te levantas a las 7am, registra 7:00am.' },
-      { id:'psqi3b', seccion:'Despertares nocturnos', texto:'¿Te despiertas espontáneamente en medio de la noche sin haber querido despertarte, y te cuesta volver a dormir?', tipo:'despertar', opcional:true },
-      { id:'psqiHoras',   seccion:'Tus horarios de sueño', texto:'¿Cuántas horas de sueño real tienes por noche? (puede ser distinto al tiempo en cama)', tipo:'numero' },
-      { id:'psqi5a', seccion:'¿Con qué frecuencia tienes problemas para dormir a causa de…?', texto:'No poder conciliar el sueño en la primera media hora', tipo:'escala', etiquetas:ETI_PSQI_FREC },
-      { id:'psqi5b', seccion:'¿Con qué frecuencia tienes problemas para dormir a causa de…?', texto:'Despertarte en medio de la noche o de madrugada', tipo:'escala', etiquetas:ETI_PSQI_FREC },
-      { id:'psqi5c', seccion:'¿Con qué frecuencia tienes problemas para dormir a causa de…?', texto:'Tener que levantarte para ir al baño', tipo:'escala', etiquetas:ETI_PSQI_FREC },
-      { id:'psqi5d', seccion:'¿Con qué frecuencia tienes problemas para dormir a causa de…?', texto:'No poder respirar bien', tipo:'escala', etiquetas:ETI_PSQI_FREC },
-      { id:'psqi5e', seccion:'¿Con qué frecuencia tienes problemas para dormir a causa de…?', texto:'Toser o roncar ruidosamente', tipo:'escala', etiquetas:ETI_PSQI_FREC },
-      { id:'psqi5f', seccion:'¿Con qué frecuencia tienes problemas para dormir a causa de…?', texto:'Sentir frío', tipo:'escala', etiquetas:ETI_PSQI_FREC },
-      { id:'psqi5g', seccion:'¿Con qué frecuencia tienes problemas para dormir a causa de…?', texto:'Sentir demasiado calor', tipo:'escala', etiquetas:ETI_PSQI_FREC },
-      { id:'psqi5h', seccion:'¿Con qué frecuencia tienes problemas para dormir a causa de…?', texto:'Tener pesadillas', tipo:'escala', etiquetas:ETI_PSQI_FREC },
-      { id:'psqi5i', seccion:'¿Con qué frecuencia tienes problemas para dormir a causa de…?', texto:'Sentir dolor', tipo:'escala', etiquetas:ETI_PSQI_FREC },
-      { id:'psqi5jTxt', seccion:'¿Alguna otra razón?', texto:'Si hay otra razón por la que te cueste dormir, descríbela (opcional)', tipo:'texto', opcional:true },
-      { id:'psqi5j', seccion:'¿Alguna otra razón?', texto:'¿Con qué frecuencia esas otras razones te causan problemas para dormir?', tipo:'escala', etiquetas:ETI_PSQI_FREC },
-      { id:'psqi6', seccion:'Valoración general', texto:'En conjunto, ¿cómo valorarías la calidad de tu sueño durante el último mes?', tipo:'escala', etiquetas:['Muy buena','Bastante buena','Bastante mala','Muy mala'] },
-      { id:'psqi7', seccion:'Medicación', texto:'¿Con qué frecuencia has tomado medicinas (recetadas o no) para poder dormir?', tipo:'escala', etiquetas:ETI_PSQI_FREC },
-      { id:'psqi8', seccion:'Durante el día', texto:'¿Con qué frecuencia te ha costado mantenerte despierto/a mientras conducías, comías o desarrollabas alguna actividad social?', tipo:'escala', etiquetas:ETI_PSQI_FREC },
-      { id:'psqi9', seccion:'Durante el día', texto:'¿Hasta qué punto ha sido un problema tener ánimos para realizar tus actividades?', tipo:'escala', etiquetas:['Ningún problema','Solo un leve problema','Un problema','Un grave problema'] },
+      { id:'psqiAcuesta', seccion:'Sus horarios de sueño', texto:'¿A qué hora se acuesta habitualmente por la noche?', tipo:'hora' },
+      { id:'psqiLatMin',  seccion:'Sus horarios de sueño', texto:'¿Cuántos minutos le ha costado quedarse dormido/a después de acostarse?', tipo:'numero' },
+      { id:'psqiLevanta', seccion:'Sus horarios de sueño', texto:'¿A qué hora se levanta definitivamente por la mañana para iniciar su día?', tipo:'hora', nota:'Indique la hora en que se levanta de forma definitiva. No incluya despertares nocturnos temporales — si se despierta a las 3am pero vuelve a dormir y se levanta a las 7am, registre 7:00am.' },
+      { id:'psqi3b', seccion:'Despertares nocturnos', texto:'¿Se despierta espontáneamente en medio de la noche sin haber querido despertarse, y le cuesta volver a dormir?', tipo:'despertar', opcional:true },
+      { id:'psqiHoras',   seccion:'Sus horarios de sueño', texto:'¿Cuántas horas de sueño real tiene por noche? (puede ser distinto al tiempo en cama)', tipo:'numero' },
+      { id:'psqi5a', seccion:'¿Con qué frecuencia tiene problemas para dormir a causa de…?', texto:'No poder conciliar el sueño en la primera media hora', tipo:'escala', etiquetas:ETI_PSQI_FREC },
+      { id:'psqi5b', seccion:'¿Con qué frecuencia tiene problemas para dormir a causa de…?', texto:'Despertarse en medio de la noche o de madrugada', tipo:'escala', etiquetas:ETI_PSQI_FREC },
+      { id:'psqi5c', seccion:'¿Con qué frecuencia tiene problemas para dormir a causa de…?', texto:'Tener que levantarse para ir al baño', tipo:'escala', etiquetas:ETI_PSQI_FREC },
+      { id:'psqi5d', seccion:'¿Con qué frecuencia tiene problemas para dormir a causa de…?', texto:'No poder respirar bien', tipo:'escala', etiquetas:ETI_PSQI_FREC },
+      { id:'psqi5e', seccion:'¿Con qué frecuencia tiene problemas para dormir a causa de…?', texto:'Toser o roncar ruidosamente', tipo:'escala', etiquetas:ETI_PSQI_FREC },
+      { id:'psqi5f', seccion:'¿Con qué frecuencia tiene problemas para dormir a causa de…?', texto:'Sentir frío', tipo:'escala', etiquetas:ETI_PSQI_FREC },
+      { id:'psqi5g', seccion:'¿Con qué frecuencia tiene problemas para dormir a causa de…?', texto:'Sentir demasiado calor', tipo:'escala', etiquetas:ETI_PSQI_FREC },
+      { id:'psqi5h', seccion:'¿Con qué frecuencia tiene problemas para dormir a causa de…?', texto:'Tener pesadillas', tipo:'escala', etiquetas:ETI_PSQI_FREC },
+      { id:'psqi5i', seccion:'¿Con qué frecuencia tiene problemas para dormir a causa de…?', texto:'Sentir dolor', tipo:'escala', etiquetas:ETI_PSQI_FREC },
+      { id:'psqi5jTxt', seccion:'¿Alguna otra razón?', texto:'Si hay otra razón por la que le cueste dormir, descríbala (opcional)', tipo:'texto', opcional:true },
+      { id:'psqi5j', seccion:'¿Alguna otra razón?', texto:'¿Con qué frecuencia esas otras razones le causan problemas para dormir?', tipo:'escala', etiquetas:ETI_PSQI_FREC },
+      { id:'psqi6', seccion:'Valoración general', texto:'En conjunto, ¿cómo valoraría la calidad de su sueño durante el último mes?', tipo:'escala', etiquetas:['Muy buena','Bastante buena','Bastante mala','Muy mala'] },
+      { id:'psqi7', seccion:'Medicación', texto:'¿Con qué frecuencia ha tomado medicinas (recetadas o no) para poder dormir?', tipo:'escala', etiquetas:ETI_PSQI_FREC },
+      { id:'psqi8', seccion:'Durante el día', texto:'¿Con qué frecuencia le ha costado mantenerse despierto/a mientras conducía, comía o desarrollaba alguna actividad social?', tipo:'escala', etiquetas:ETI_PSQI_FREC },
+      { id:'psqi9', seccion:'Durante el día', texto:'¿Hasta qué punto ha sido un problema tener ánimos para realizar sus actividades?', tipo:'escala', etiquetas:['Ningún problema','Solo un leve problema','Un problema','Un grave problema'] },
+    ],
+  },
+  'MRS01': {
+    id:'MRS01', nombre:'Escala de Valoración de la Menopausia (MRS)', tipo:'estandar',
+    bienvenida:{ titulo:'Valoración de la Menopausia', descripcion:'A continuación encontrará una lista de síntomas que pueden presentarse en esta etapa de la vida. Indique en qué medida ha experimentado cada uno durante las últimas 4 semanas.', tiempoEstimado:'3 a 5 minutos', instruccion:'Piense en las últimas 4 semanas y marque la opción que mejor describa su situación.' },
+    preguntas:[
+      { id:'mrs1',  seccion:'Síntomas somático-vegetativos', texto:'Sofocos y sudoración', nota:'Episodios de calor repentino, sudoración (incluida la sudoración nocturna).', tipo:'likert5', etiquetas:ETI_MRS },
+      { id:'mrs2',  seccion:'Síntomas somático-vegetativos', texto:'Molestias cardíacas', nota:'Sensación de latidos irregulares del corazón, palpitaciones, opresión en el pecho.', tipo:'likert5', etiquetas:ETI_MRS },
+      { id:'mrs3',  seccion:'Síntomas somático-vegetativos', texto:'Problemas de sueño', nota:'Dificultad para conciliar el sueño, despertar frecuente, despertar temprano.', tipo:'likert5', etiquetas:ETI_MRS },
+      { id:'mrs4',  seccion:'Síntomas somático-vegetativos', texto:'Molestias musculares y articulares', nota:'Dolores reumáticos, dolor en articulaciones, sensación de rigidez.', tipo:'likert5', etiquetas:ETI_MRS },
+      { id:'mrs5',  seccion:'Síntomas psicológicos', texto:'Estado de ánimo depresivo', nota:'Sentirse deprimida, triste, a punto de llorar, sin motivación, cambios de humor.', tipo:'likert5', etiquetas:ETI_MRS },
+      { id:'mrs6',  seccion:'Síntomas psicológicos', texto:'Irritabilidad', nota:'Sentirse nerviosa, tensa, agresiva, irritable sin razón aparente.', tipo:'likert5', etiquetas:ETI_MRS },
+      { id:'mrs7',  seccion:'Síntomas psicológicos', texto:'Ansiedad', nota:'Sentirse inquieta, con pánico, sensación de angustia o miedo sin causa aparente.', tipo:'likert5', etiquetas:ETI_MRS },
+      { id:'mrs8',  seccion:'Síntomas psicológicos', texto:'Agotamiento físico y mental', nota:'Disminución general del rendimiento, deterioro de la memoria, dificultad para concentrarse, olvidos frecuentes.', tipo:'likert5', etiquetas:ETI_MRS },
+      { id:'mrs9',  seccion:'Síntomas urogenitales', texto:'Problemas sexuales', nota:'Cambios en el deseo sexual, cambios en la actividad y satisfacción sexual.', tipo:'likert5', etiquetas:ETI_MRS },
+      { id:'mrs10', seccion:'Síntomas urogenitales', texto:'Problemas con la vejiga', nota:'Dificultad para orinar, aumento de la frecuencia urinaria, incontinencia involuntaria.', tipo:'likert5', etiquetas:ETI_MRS },
+      { id:'mrs11', seccion:'Síntomas urogenitales', texto:'Sequedad vaginal', nota:'Sensación de sequedad o ardor en la vagina, dificultad o dolor durante las relaciones sexuales.', tipo:'likert5', etiquetas:ETI_MRS },
     ],
   },
 };
@@ -470,7 +488,7 @@ function mafConstruirPreguntas(ans){
 }
 
 /* ═══════════════ ESTADO ═══════════════ */
-const ORDEN_FORMS = ['MAF01','ISI01','PSQI01','PSS01','YFAS01','EEQ01']; // orden fijo de presentación
+const ORDEN_FORMS = ['MAF01','ISI01','PSQI01','PSS01','YFAS01','EEQ01','MRS01']; // orden fijo de presentación
 const S = {
   token:'', cc:'', formIds:[], respondidos:[],          // sesión multi-formulario
   formId:'', form:null, isMAF:false, preguntas:[], idx:0, answers:{}, dir:'right', // formulario actual

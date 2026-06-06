@@ -579,6 +579,7 @@ const FORMULARIOS_CATALOGO = [
   { id:'PSS01',  nombre:'Escala de Estrés Percibido (PSS-4)',      tiempo:'2–3 min',   icon:'🧠' },
   { id:'YFAS01', nombre:'Escala de Adicción a la Comida (mYFAS)',  tiempo:'5–7 min',   icon:'🍔' },
   { id:'EEQ01',  nombre:'Alimentación Emocional (EEQ)',            tiempo:'3–5 min',   icon:'💗' },
+  { id:'MRS01',  nombre:'Valoración de la Menopausia (MRS)',       tiempo:'3–5 min',   icon:'🌸' },
 ];
 
 /* ═══════════════════════════════════════════════════════════
@@ -805,6 +806,7 @@ const ETI_ISI_IMP = ['Nada','Un poco','Algo','Mucho','Muchísimo'];
 const ETI_PSQI_FREC_R = ['Ninguna','< 1 vez/sem','1-2 veces/sem','≥ 3 veces/sem'];
 const ETI_PSQI_CAL = ['Muy buena','Bastante buena','Bastante mala','Muy mala'];
 const ETI_PSQI_PROB = ['Ningún problema','Leve problema','Un problema','Grave problema'];
+const ETI_MRS_R = ['Ninguno','Leve','Moderado','Intenso','Muy intenso'];
 
 const ESCALAS = {
   PSS01: {
@@ -905,6 +907,32 @@ const ESCALAS = {
       {id:'psqi9',texto:'Problema para tener ánimos en las actividades',etiquetas:ETI_PSQI_PROB},
     ],
   },
+  MRS01: {
+    nombre:'Escala de Valoración de la Menopausia (MRS)',
+    descripcion:'Evalúa la severidad de los síntomas de la perimenopausia y menopausia en 11 ítems agrupados en 3 subescalas (somático-vegetativa, psicológica y urogenital). Altamente sensible a cambios terapéuticos, es ideal para monitorear la respuesta a las intervenciones funcionales (manejo hormonal, fitoterapia, estilo de vida y soporte adrenal).',
+    tabulacion:'mrs',
+    maxScore:44, alarmaMin:17,
+    alarma:'MRS ≥ 17 (síntomas severos): alta carga sintomática con impacto significativo en calidad de vida. Intervención médica funcional prioritaria; evaluar perfil hormonal completo y las subescalas más afectadas.',
+    interpretacion:[{min:0,max:4,label:'Sin síntomas o mínimos',color:'#007A60'},{min:5,max:8,label:'Síntomas leves',color:'#6B7055'},{min:9,max:16,label:'Síntomas moderados',color:'#C4B49A'},{min:17,max:44,label:'Síntomas severos',color:'#9B4EBF'}],
+    subescalas:[
+      {nombre:'Somático-vegetativa', ids:['mrs1','mrs2','mrs3','mrs4'], max:16, cortes:[4,8,12]},
+      {nombre:'Psicológica',         ids:['mrs5','mrs6','mrs7','mrs8'], max:16, cortes:[4,8,12]},
+      {nombre:'Urogenital',          ids:['mrs9','mrs10','mrs11'],      max:12, cortes:[3,6,9]},
+    ],
+    preguntas:[
+      {id:'mrs1',texto:'Sofocos y sudoración',etiquetas:ETI_MRS_R},
+      {id:'mrs2',texto:'Molestias cardíacas',etiquetas:ETI_MRS_R},
+      {id:'mrs3',texto:'Problemas de sueño',etiquetas:ETI_MRS_R},
+      {id:'mrs4',texto:'Molestias musculares y articulares',etiquetas:ETI_MRS_R},
+      {id:'mrs5',texto:'Estado de ánimo depresivo',etiquetas:ETI_MRS_R},
+      {id:'mrs6',texto:'Irritabilidad',etiquetas:ETI_MRS_R},
+      {id:'mrs7',texto:'Ansiedad',etiquetas:ETI_MRS_R},
+      {id:'mrs8',texto:'Agotamiento físico y mental',etiquetas:ETI_MRS_R},
+      {id:'mrs9',texto:'Problemas sexuales',etiquetas:ETI_MRS_R},
+      {id:'mrs10',texto:'Problemas con la vejiga',etiquetas:ETI_MRS_R},
+      {id:'mrs11',texto:'Sequedad vaginal',etiquetas:ETI_MRS_R},
+    ],
+  },
 };
 
 // PSQI · P3b — interpretación clínica del patrón de despertar nocturno (complementaria, no puntúa)
@@ -950,6 +978,7 @@ function puntuarEscala(formId, r){
     return { valor:sintomas, scoreLabel:`${sintomas} síntoma${sintomas!==1?'s':''} · Dx adicción: ${dx?'Sí':'No'}`, interpretacion:band.label, color:band.color, alarma, nota };
   }
   if(cfg.tabulacion === 'psqi'){ return puntuarPSQI(r); }
+  if(cfg.tabulacion === 'mrs'){ return puntuarMRS(r); }
   let total = 0;
   cfg.preguntas.forEach(q => {
     let v = r[q.id] ?? 0;
@@ -961,6 +990,42 @@ function puntuarEscala(formId, r){
   return { valor:total, scoreLabel:`${total} / ${cfg.maxScore}`, interpretacion:band.label, color:band.color, alarma };
 }
 
+// MRS: 11 ítems (0-4) → total 0-44, con 3 subescalas y recomendaciones complementarias.
+const MRS_NIVELES = [['Sin síntomas o mínimos','#007A60'],['Leve','#6B7055'],['Moderado','#C4B49A'],['Severo','#9B4EBF']];
+function puntuarMRS(r){
+  const cfg = ESCALAS.MRS01;
+  const f = id => { const v = r[id]; return (v==null||v==='') ? 0 : (v|0); };
+  const subescalas = cfg.subescalas.map(s => {
+    const score = s.ids.reduce((a,id) => a + f(id), 0);
+    const niv = score<=s.cortes[0]?0:(score<=s.cortes[1]?1:(score<=s.cortes[2]?2:3));
+    return { nombre:s.nombre, score, max:s.max, label:MRS_NIVELES[niv][0], color:MRS_NIVELES[niv][1] };
+  });
+  const total = subescalas.reduce((a,s) => a + s.score, 0);
+  const band = cfg.interpretacion.find(b => total>=b.min && total<=b.max) || cfg.interpretacion[cfg.interpretacion.length-1];
+  const alarma = (cfg.alarmaMin!=null && total>=cfg.alarmaMin) ? cfg.alarma : '';
+  const items = cfg.preguntas.map(q => ({ texto:q.texto, score:f(q.id), id:q.id })).sort((a,b) => b.score - a.score);
+  const prioritarios = items.filter(i => i.score >= 3);
+  const rec = [];
+  if(subescalas[1].score >= 5) rec.push('PHQ-9 y GAD-7 — cribado de depresión y ansiedad.');
+  if(f('mrs3') >= 2) rec.push('PSQI — calidad del sueño (disponible en esta app).');
+  if(f('mrs9') >= 2) rec.push('FSFI — índice de función sexual femenina.');
+  if(f('mrs10') >= 2 || f('mrs11') >= 2) rec.push('DIVA — síndrome genitourinario de la menopausia.');
+  if(total >= 9) rec.push('MSQ — calidad de vida específica en menopausia.');
+  return { valor:total, scoreLabel:`${total} / 44`, interpretacion:band.label, color:band.color, alarma, subescalas, items, prioritarios, recomendaciones:rec };
+}
+function mrsBloqueHTML(res){
+  const sub = res.subescalas.map(s => `<div class="psqi-comp"><span class="psqi-comp-lbl">${s.nombre} <span class="muted" style="font-weight:400">(${s.score}/${s.max})</span></span><span class="badge" style="background:${s.color};color:#fff">${s.label}</span></div>`).join('');
+  const det = res.items.map(i => `<div class="esc-fila"><span>${escapeHtml(i.texto)}</span><span class="esc-val">${ETI_MRS_R[i.score]} (${i.score})</span></div>`).join('');
+  const prio = res.prioritarios.length
+    ? `<div class="hallazgo-alerta" style="margin-top:12px">⚠ Síntomas prioritarios (≥ 3): ${res.prioritarios.map(i => escapeHtml(i.texto)).join(', ')}. Requieren atención prioritaria.</div>`
+    : `<div class="muted" style="font-size:12px;margin-top:10px">Sin síntomas en rango prioritario (ningún ítem ≥ 3).</div>`;
+  const rec = res.recomendaciones.length
+    ? `<div class="maf-afectadas-h" style="margin-top:16px">Escalas complementarias sugeridas</div><ul style="margin:6px 0 0 18px;font-size:12.5px;color:var(--color-estructura-gris);line-height:1.7">${res.recomendaciones.map(r => `<li>${r}</li>`).join('')}</ul>`
+    : '';
+  return `<div class="maf-afectadas-h" style="margin-top:16px">Perfil por subescala</div>${sub}
+    <div class="maf-afectadas-h" style="margin-top:16px">Detalle por síntoma (mayor a menor)</div>${det}
+    ${prio}${rec}`;
+}
 // PSQI: 7 componentes (0-3 c/u) → total 0-21. Maneja horas "HH:MM" y cruce de medianoche.
 function puntuarPSQI(r){
   const f = v => (v==null || v==='') ? 0 : (v|0);            // ítems de frecuencia ya vienen 0-3
@@ -1569,10 +1634,10 @@ function htmlEscala(formId){
     ${res.alarma ? `<div class="esc-alarma">⚠️ ${res.alarma}</div>` : ''}
     ${res.nota ? `<div class="esc-nota">ℹ️ ${res.nota}</div>` : ''}
     ${desgloseHTML}
+    ${res.subescalas ? mrsBloqueHTML(res) : ''}
     ${formId === 'PSQI01' ? psqiHallazgoHTML(r.psqi3b) : ''}
     ${evolHTML}
-    <div class="maf-afectadas-h" style="margin-top:18px">Respuestas (última)</div>
-    ${filas}
+    ${res.subescalas ? '' : `<div class="maf-afectadas-h" style="margin-top:18px">Respuestas (última)</div>${filas}`}
     <div class="muted" style="margin-top:10px;font-size:11.5px">Respondido el ${formatFecha(resp.fechaRespuesta)}${resps.length>1 ? ` · ${resps.length} respuestas (se muestra la última)` : ''}</div>
   </div>`;
 }
@@ -1654,7 +1719,7 @@ function respuestasMAF(cc){
     .sort((a,b) => (a.fechaRespuesta||'').localeCompare(b.fechaRespuesta||''));
 }
 
-const CHIP_LABEL = { MAF01:'MAF', ISI01:'Sueño (ISI)', PSQI01:'Sueño (PSQI)', PSS01:'Estrés (PSS-4)', YFAS01:'Comida (mYFAS)', EEQ01:'Emocional (EEQ)' };
+const CHIP_LABEL = { MAF01:'MAF', ISI01:'Sueño (ISI)', PSQI01:'Sueño (PSQI)', PSS01:'Estrés (PSS-4)', YFAS01:'Comida (mYFAS)', EEQ01:'Emocional (EEQ)', MRS01:'Menopausia (MRS)' };
 /* ── Tabulación MAF por categorías (devuelve HTML para el panel inline) ── */
 function htmlMAFCategorias(resp){
   const r = resp.respuestas || {};
@@ -1805,6 +1870,7 @@ let _metDesde = '', _metHasta = '', _metMedico = '', _metForm = 'MAF01', _metCha
 const MET_CHIPS = [
   {id:'MAF01',label:'MAF'},{id:'PSS01',label:'Estrés (PSS-4)'},{id:'ISI01',label:'Sueño (ISI)'},
   {id:'PSQI01',label:'Sueño (PSQI)'},{id:'YFAS01',label:'Comida (mYFAS)'},{id:'EEQ01',label:'Emocional (EEQ)'},
+  {id:'MRS01',label:'Menopausia (MRS)'},
 ];
 function respuestasFiltradas(formId){
   const pacByCC = Object.fromEntries(PACIENTES_DATA.map(p => [p.cc, p]));
