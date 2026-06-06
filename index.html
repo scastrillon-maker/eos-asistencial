@@ -455,7 +455,8 @@ input,select,textarea{font-family:inherit;font-size:15px}
         </div>
         <div class="field full"><label>Nombre completo *</label><input type="text" id="mp-nombre" placeholder="Nombre y apellidos"/></div>
         <div class="field"><label>Fecha de nacimiento</label><input type="date" id="mp-nacimiento"/></div>
-        <div class="field"><label>Teléfono</label><input type="text" id="mp-telefono" placeholder="3001234567"/></div>
+        <div class="field"><label>Género</label><select id="mp-genero"><option value="">—</option><option>Hombre</option><option>Mujer</option><option>No binario</option><option>Prefiero no responder</option></select></div>
+        <div class="field full"><label>Teléfono</label><input type="text" id="mp-telefono" placeholder="3001234567"/></div>
         <div class="field full"><label>Email</label><input type="email" id="mp-email" placeholder="correo@ejemplo.com"/></div>
         <div class="field full"><label>Médico tratante</label><select id="mp-medico"></select></div>
       </div>
@@ -947,13 +948,14 @@ function rowsToPacientes(rows){
       fechaNacimiento:String(r[3]||'').slice(0,10), telefono:String(r[4]||''),
       email:String(r[5]||''), medicoTratante:String(r[6]||''),
       fechaRegistro:String(r[7]||'').slice(0,10), activo:String(r[8]||'si'),
+      genero:String(r[9]||''),
     });
   });
   return true;
 }
 function pacientesToRows(){
-  const h = ['cc','tipoDoc','nombre','fechaNacimiento','telefono','email','medicoTratante','fechaRegistro','activo'];
-  return [h, ...PACIENTES_DATA.map(p => [p.cc,p.tipoDoc,p.nombre,p.fechaNacimiento,p.telefono,p.email,p.medicoTratante,p.fechaRegistro,p.activo])];
+  const h = ['cc','tipoDoc','nombre','fechaNacimiento','telefono','email','medicoTratante','fechaRegistro','activo','genero'];
+  return [h, ...PACIENTES_DATA.map(p => [p.cc,p.tipoDoc,p.nombre,p.fechaNacimiento,p.telefono,p.email,p.medicoTratante,p.fechaRegistro,p.activo,p.genero||''])];
 }
 // Tokens multi-formulario: col C = formIds (JSON array). Compat: si viene un formId
 // simple (token viejo), se lee como lista de uno. F = formIdsRespondidos, G = creadoPor.
@@ -1207,7 +1209,7 @@ function abrirNuevoPaciente(){
   _editandoCC = null;
   document.getElementById('mp-titulo').textContent = 'Nuevo paciente';
   document.getElementById('mp-tipodoc').value = 'CC';
-  ['mp-cc','mp-nombre','mp-nacimiento','mp-telefono','mp-email'].forEach(id => document.getElementById(id).value = '');
+  ['mp-cc','mp-nombre','mp-nacimiento','mp-telefono','mp-email','mp-genero'].forEach(id => document.getElementById(id).value = '');
   // Auto-asignar al médico que crea (evita que "pierda" el paciente por el filtro de visibilidad)
   const esMedico = currentUser.rol === 'Médico' || currentUser.rol === 'Médico Administrador';
   document.getElementById('mp-medico').value = esMedico ? currentUser.nombre : '';
@@ -1222,6 +1224,7 @@ function editarPaciente(){
   document.getElementById('mp-cc').value = p.cc; document.getElementById('mp-cc').disabled = true;
   document.getElementById('mp-nombre').value = p.nombre;
   document.getElementById('mp-nacimiento').value = p.fechaNacimiento;
+  document.getElementById('mp-genero').value = p.genero || '';
   document.getElementById('mp-telefono').value = p.telefono;
   document.getElementById('mp-email').value = p.email;
   document.getElementById('mp-medico').value = p.medicoTratante;
@@ -1236,6 +1239,7 @@ async function guardarPaciente(){
   const datos = {
     cc, tipoDoc:document.getElementById('mp-tipodoc').value,
     nombre, fechaNacimiento:document.getElementById('mp-nacimiento').value,
+    genero:document.getElementById('mp-genero').value,
     telefono:document.getElementById('mp-telefono').value.trim(),
     email:document.getElementById('mp-email').value.trim(),
     medicoTratante:document.getElementById('mp-medico').value,
@@ -1320,7 +1324,7 @@ function buildPerfil(cc){
         <button class="btn btn-ghost" onclick="editarPaciente()">✎ Editar</button>
       </div>
       <div class="perfil-nombre">${escapeHtml(p.nombre)}</div>
-      <div class="muted">${p.tipoDoc} ${escapeHtml(p.cc)}${p.telefono?` · ${escapeHtml(p.telefono)}`:''}${p.medicoTratante?` · ${escapeHtml(p.medicoTratante)}`:''}</div>
+      <div class="muted">${p.tipoDoc} ${escapeHtml(p.cc)}${p.genero?` · ${escapeHtml(p.genero)}`:''}${p.telefono?` · ${escapeHtml(p.telefono)}`:''}${p.medicoTratante?` · ${escapeHtml(p.medicoTratante)}`:''}</div>
       <div class="perfil-stats">${heroStats}</div>
     </div>
     <div class="perfil-tabs">${tabs}</div>
